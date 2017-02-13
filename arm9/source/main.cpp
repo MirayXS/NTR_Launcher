@@ -34,17 +34,12 @@
 
 // #define REG_ROMCTRL		(*(vu32*)0x40001A4)
 // #define REG_SCFG_ROM	(*(vu32*)0x4004000)
-#define REG_SCFG_CLK	(*(vu32*)0x4004004)
-#define REG_SCFG_EXT	(*(vu32*)0x4004008)
-#define REG_SCFG_MC		(*(vu32*)0x4004010)
+// #define REG_SCFG_CLK	(*(vu32*)0x4004004)
+// #define REG_SCFG_EXT	(*(vu32*)0x4004008)
+// #define REG_SCFG_MC		(*(vu32*)0x4004010)
 
 
 int main(int argc, const char* argv[]) {
-
-	// volatile u32* REG_SCFG_EXT = (volatile u32*)0x4004008;
-	// volatile u32* REG_SCFG_CLK = (volatile u32*)0x4004004;
-	// volatile u32* REG_SCFG_MC = (volatile u32*)0x4004010;
-	// volatile u32* REG_SCFG_ROM = (volatile u32*)0x4004000;
 
 	// REG_SCFG_EXT = 0x8307F100;
 	

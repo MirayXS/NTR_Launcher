@@ -141,9 +141,6 @@ Written by Darkain, modified by Chishm
 --------------------------------------------------------------------------*/
 void arm9_main (void) {
 
-	// volatile u32* SCFG_EXT = (volatile u32*)0x4004008;
-	// volatile u32* SCFG_CLK = (volatile u32*)0x4004004;
-
 	register int i;
 	
 	//set shared ram to ARM7
