@@ -41,8 +41,6 @@
 
 int main(int argc, const char* argv[]) {
 
-	// REG_SCFG_EXT = 0x8307F100;
-	
 	// NTR Mode/Splash used by default
 	bool UseNTRSplash = true;
 	bool EnableSD = false;
@@ -93,10 +91,14 @@ int main(int argc, const char* argv[]) {
 			fifoSendValue32(FIFO_USER_06, 1);
 		}
 
+		/* Doesn't work on libnds 1.6.2 if slot reset isn't forced. Card init from slot not in ntr mode doesn't work anymore? :(
 		if(ntrlauncher_config.GetInt("NTRLAUNCHER_ALT","RESETSLOT1",0) == 1) {
 			fifoSendValue32(FIFO_USER_02, 1);
 			fifoSendValue32(FIFO_USER_07, 1);
 		}
+		*/
+		fifoSendValue32(FIFO_USER_02, 1);
+		fifoSendValue32(FIFO_USER_07, 1);
 
 	} else {
 		if ( pressed & KEY_B ) { if(REG_SCFG_MC == 0x11) { BootSplashInit(UseNTRSplash); } } else { BootSplashInit(UseNTRSplash); }
