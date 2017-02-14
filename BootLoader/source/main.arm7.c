@@ -259,7 +259,8 @@ void arm7_main (void) {
 		debugOutput(errorCode);
 	}
 
-	debugOutput (ERR_STS_HOOK_BIN);
+	//debugOutput (ERR_STS_HOOK_BIN);
+	debugOutput (ERR_STS_START);
 
 	arm7_startBinary();
 	
