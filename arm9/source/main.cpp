@@ -101,6 +101,9 @@ int main(int argc, const char* argv[]) {
 		fifoSendValue32(FIFO_USER_07, 1);
 
 	} else {
+		fifoSendValue32(FIFO_USER_02, 1);
+		fifoSendValue32(FIFO_USER_07, 1);
+
 		if ( pressed & KEY_B ) { if(REG_SCFG_MC == 0x11) { BootSplashInit(UseNTRSplash); } } else { BootSplashInit(UseNTRSplash); }
 	}
 
