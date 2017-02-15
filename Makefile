@@ -14,17 +14,13 @@ export VERSION_MAJOR	:= 1
 export VERSION_MINOR	:= 97
 export VERSTRING	:=	$(VERSION_MAJOR).$(VERSION_MINOR)
 
-#---------------------------------------------------------------------------------
-# path to tools - this can be deleted if you set the path in windows
-#---------------------------------------------------------------------------------
-export PATH		:=	$(DEVKITARM)/bin:$(PATH)
 
 .PHONY: checkarm7 checkarm9
 
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-all: checkarm7 checkarm9 $(TARGET).nds
+all: $(TARGET).nds checkarm7 checkarm9
 
 #---------------------------------------------------------------------------------
 checkarm7:
@@ -34,7 +30,7 @@ checkarm7:
 checkarm9:
 	$(MAKE) -C arm9
 
-$(TARGET).nds	:	$(TARGET).arm7 $(TARGET).arm9
+$(TARGET).nds	:	arm7/$(TARGET).elf arm9/$(TARGET).elf
 	ndstool	-c $(TARGET).nds -7 arm7/$(TARGET).arm7.elf -9 arm9/$(TARGET).arm9.elf \
 			-b $(CURDIR)/icon.bmp "NTR Launcher;NitroHax provided by Chishm;Modified by Apache Thunder" \
 			-g KKGP 01 "TWL LAUNCHER" -z 80040000 -u 00030004
