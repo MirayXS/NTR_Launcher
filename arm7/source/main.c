@@ -64,7 +64,8 @@ void TWL_ResetSlot1() {
 
 int main(void) {
 
-	REG_SCFG_CLK = 0x0187;
+	// libnds sets TWL clock speeds on boot now.
+	// REG_SCFG_CLK = 0x0187;
 	
 	irqInit();
 	fifoInit();

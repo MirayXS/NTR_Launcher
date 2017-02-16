@@ -45,7 +45,8 @@ int main(int argc, const char* argv[]) {
 	bool UseNTRSplash = true;
 	bool EnableSD = false;
 
-	REG_SCFG_CLK = 0x85;
+	// libnds sets this now.
+	// REG_SCFG_CLK = 0x85;
 
 	swiWaitForVBlank();
 
@@ -76,7 +77,9 @@ int main(int argc, const char* argv[]) {
 
 		if( UseNTRSplash == true ) {
 			fifoSendValue32(FIFO_USER_04, 1);
-			REG_SCFG_CLK = 0x80;
+			// REG_SCFG_CLK = 0x80;
+			// New libnds function for going back to NTR clock speeds
+			setCpuClock(false);
 			swiWaitForVBlank();
 		}
 
