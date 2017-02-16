@@ -10,3 +10,4 @@ Thumbs.db
 *.map
 arm9/data/load.bin
 BootLoader/load.bin
+desktop.ini

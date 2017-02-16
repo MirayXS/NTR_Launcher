@@ -157,8 +157,8 @@ int cardInit (tNDSHeader* ndsHeader, u32* chipID)
 		return ERR_HEAD_CRC;
 	}
 
-	// Check logo CRC
 	/*
+	// Check logo CRC
 	if (ndsHeader->logoCRC16 != 0xCF56) {
 		return ERR_LOGO_CRC;
 	}

@@ -36,10 +36,10 @@
 #include <nds/dma.h>
 #include <nds/arm7/audio.h>
 #include <nds/ipc.h>
-#include <nds/registers_alt.h>
-#include <nds/memory.h>
-#include <nds/card.h>
-#include <stdio.h>
+// #include <nds/registers_alt.h>
+// #include <nds/memory.h>
+// #include <nds/card.h>
+// #include <stdio.h>
 
 #ifndef NULL
 #define NULL 0
@@ -130,7 +130,7 @@ void arm7_resetMemory (void) {
 		SCHANNEL_SOURCE(i) = 0;
 		SCHANNEL_LENGTH(i) = 0;
 	}
-	SOUND_CR = 0;
+	REG_SOUNDCNT = 0;
 
 	// Clear out ARM7 DMA channels and timers
 	for (i=0; i<4; i++) {
@@ -230,17 +230,6 @@ void arm7_startBinary (void)
 
 void arm7_main (void) {
 	
-	// No longer set here.
-	// volatile u32* SCFG_ROM = (volatile u32*)0x4004000;
-	// volatile u32* SCFG_CLK = (volatile u32*)0x4004004;
-	// volatile u32* SCFG_EXT = (volatile u32*)0x4004008;
-
-	
-	// REG_SCFG_ROM = 0x703;
-	// REG_SCFG_CLK = 0x180;
-	// REG_SCFG_EXT = 0x80000000;
-	// REG_SCFG_EXT=0x12A00000;
-
 	int errorCode;
 	
 	// Wait for ARM9 to at least start
@@ -259,7 +248,6 @@ void arm7_main (void) {
 		debugOutput(errorCode);
 	}
 
-	//debugOutput (ERR_STS_HOOK_BIN);
 	debugOutput (ERR_STS_START);
 
 	arm7_startBinary();
