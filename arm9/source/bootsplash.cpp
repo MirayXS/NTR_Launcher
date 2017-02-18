@@ -311,12 +311,14 @@ void BootSplashDSi() {
 	vramcpy_ui (&BG_PALETTE_SUB[0], BotDSi02Pal, BotDSi02PalLen);
 	
 	for (int i = 0; i < 2; i++) { swiWaitForVBlank(); }
-	
+
+	BootJingleDSi();
+
 	swiDecompressLZSSVram ((void*)DSi02Tiles, (void*)CHAR_BASE_BLOCK(2), 0, &decompressBiosCallback);
 	swiDecompressLZSSVram ((void*)BotDSi02Tiles, (void*)CHAR_BASE_BLOCK_SUB(2), 0, &decompressBiosCallback);
 	vramcpy_ui (&BG_PALETTE[0], DSi03Pal, DSi03PalLen);
 	vramcpy_ui (&BG_PALETTE_SUB[0], BotDSi03Pal, BotDSi03PalLen);
-	
+
 	for (int i = 0; i < 2; i++) { swiWaitForVBlank(); }
 
 	swiDecompressLZSSVram ((void*)DSi03Tiles, (void*)CHAR_BASE_BLOCK(2), 0, &decompressBiosCallback);
@@ -342,8 +344,6 @@ void BootSplashDSi() {
 	
 	swiDecompressLZSSVram ((void*)DSi06Tiles, (void*)CHAR_BASE_BLOCK(2), 0, &decompressBiosCallback);
 	vramcpy_ui (&BG_PALETTE[0], DSi06Pal, DSi06PalLen);
-	
-	BootJingleDSi();
 	
 	for (int i = 0; i < 2; i++) { swiWaitForVBlank(); }
 
