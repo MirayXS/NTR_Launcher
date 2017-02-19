@@ -11,7 +11,7 @@ export TARGET		:=	NTR_Launcher
 export TOPDIR		:=	$(CURDIR)
 
 export VERSION_MAJOR	:= 1
-export VERSION_MINOR	:= 98
+export VERSION_MINOR	:= 99
 export VERSTRING	:=	$(VERSION_MAJOR).$(VERSION_MINOR)
 
 #---------------------------------------------------------------------------------
@@ -30,6 +30,7 @@ $(TARGET).nds	:	$(TARGET).arm7 $(TARGET).arm9
 	ndstool	-c $(TARGET).nds -7 arm7/$(TARGET).arm7.elf -9 arm9/$(TARGET).arm9.elf \
 			-b $(CURDIR)/icon.bmp "NTR Launcher;NitroHax provided by Chishm;Modified by Apache Thunder" \
 			-g KKGP 01 "NTR LAUNCHER" -z 80040000 -u 00030004
+	python patch_ndsheader_dsiware.py $(CURDIR)/$(TARGET).nds --accessControl 0x00000038
 
 #---------------------------------------------------------------------------------
 $(TARGET).arm7	: arm7/$(TARGET).elf
@@ -91,4 +92,4 @@ clean:
 	$(MAKE) -C BootLoader clean
 	rm -f arm9/data/load.bin
 	rm -f arm9/source/version.h
-	rm -f $(TARGET).ds.gba $(TARGET).nds $(TARGET).arm7 $(TARGET).arm9
+	rm -f $(TARGET).ds.gba $(TARGET).nds $(TARGET).arm7 $(TARGET).arm9 $(TARGET).nds.orig.nds $(TARGET).cia
