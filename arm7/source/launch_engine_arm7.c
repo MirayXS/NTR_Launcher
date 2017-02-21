@@ -27,7 +27,7 @@ void runLaunchEngineCheck (void)
 			if(fifoCheckValue32(FIFO_USER_05)) { REG_SCFG_CLK = 0x0181; } else { REG_SCFG_CLK = 0x0180; }
 		}
 		if(fifoCheckValue32(FIFO_USER_06)) { /*Do Nothing*/ } else { REG_SCFG_ROM = 0x703; }
-		if(fifoCheckValue32(FIFO_USER_05)) { REG_SCFG_EXT = 0x93A50000; } else { REG_SCFG_EXT = 0x12A00000; }
+		if(fifoCheckValue32(FIFO_USER_05)) { REG_SCFG_EXT = 0x93A53000; } else { REG_SCFG_EXT = 0x12A03000; }
 
 		irqDisable (IRQ_ALL);
 		*((vu32*)0x027FFE34) = (u32)0x06000000;
