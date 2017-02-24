@@ -37,7 +37,13 @@
 #include <nds/system.h>
 #include <nds/ipc.h>
 
+#include <nds/dma.h>
+#include <stdlib.h>
+
 #include "common.h"
+
+#define resetCpu_arm9() \
+		__asm volatile("swi 0x000000")
 
 volatile int arm9_stateFlag = ARM9_BOOT;
 volatile u32 arm9_errorCode = 0xFFFFFFFF;
@@ -232,12 +238,8 @@ void arm9_main (void) {
 	while(REG_VCOUNT!=191);
 	while(REG_VCOUNT==191);
 	
-	u32 first = *(u32*)(0x27FFE34);
-	
 	// arm9_errorOutput (*(u32*)(first), true);
 
-	void (*newReset)() = *(u32*)(0x27FFE24);
-
-	newReset();
+	((void (*)())(*(u32*)(0x27FFE24)))();
 }
 

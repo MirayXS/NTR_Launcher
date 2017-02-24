@@ -14,7 +14,7 @@ int PowerOnSlot() {
 	REG_ROMCTRL = 0x20000000; // wait 27ms, then set ROMCTRL=20000000h
 	
 	while(REG_ROMCTRL&0x8000000 != 0x8000000);
-	
+	return 0;
 }
 
 int PowerOffSlot() {
@@ -23,11 +23,13 @@ int PowerOffSlot() {
 	
 	REG_SCFG_MC = 0x0C; // set state=3 
 	while(REG_SCFG_MC&0x0C != 0x00); // wait until state=0
+	return 0;
 }
 
-void TWL_ResetSlot1() {
+int TWL_ResetSlot1() {
 	PowerOffSlot();
 	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
-	PowerOnSlot(); 
+	PowerOnSlot();
+	return 0;
 }
 

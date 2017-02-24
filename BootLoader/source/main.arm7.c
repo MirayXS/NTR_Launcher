@@ -36,6 +36,7 @@
 #include <nds/dma.h>
 #include <nds/arm7/audio.h>
 #include <nds/ipc.h>
+
 // #include <nds/registers_alt.h>
 // #include <nds/memory.h>
 // #include <nds/card.h>
@@ -217,11 +218,9 @@ void arm7_startBinary (void)
 
 	while(REG_VCOUNT!=191);
 	while(REG_VCOUNT==191);
+
 	// Start ARM7
-	
-	void (*foo)() = *(u32*)(0x27FFE34);
-	
-	foo();
+	((void (*)())(*(u32*)(0x27FFE34)))();
 }
 
 

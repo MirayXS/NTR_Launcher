@@ -20,6 +20,8 @@
 
 #include "errorsplash.h"
 
+#include "bootsplash.h"
+
 #include "bios_decompress_callback.h"
 
 #include "fade00.h"

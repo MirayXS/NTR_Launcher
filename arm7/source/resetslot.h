@@ -8,7 +8,7 @@ extern "C" {
 
 int PowerOnSlot(void);
 int PowerOffSlot(void);
-void TWL_ResetSlot1(void);
+int TWL_ResetSlot1(void);
 
 #ifdef __cplusplus
 }

@@ -31,7 +31,7 @@ $(TARGET).nds	:	$(TARGET).arm7 $(TARGET).arm9
 			-b $(CURDIR)/icon.bmp "NTR Launcher;NitroHax provided by Chishm;Modified by Apache Thunder" \
 			-g KKGP 01 "NTR LAUNCHER" -z 80040000 -u 00030004
 	python patch_ndsheader_dsiware.py $(CURDIR)/$(TARGET).nds --accessControl 0x00000038
-	make_cia --srl=$(CURDIR)/$(TARGET).nds
+	makerom -srl $(CURDIR)/$(TARGET).nds
 
 #---------------------------------------------------------------------------------
 $(TARGET).arm7	: arm7/$(TARGET).elf

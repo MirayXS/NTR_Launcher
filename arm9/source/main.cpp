@@ -39,7 +39,7 @@
 // #define REG_SCFG_MC		(*(vu32*)0x4004010)
 
 
-int main(int argc, const char* argv[]) {
+int main() {
 
 	// NTR Mode/Splash used by default
 	bool UseNTRSplash = true;
@@ -59,7 +59,6 @@ int main(int argc, const char* argv[]) {
 
 	u32 ndsHeader[0x80];
 	char gameid[4];
-	uint32_t headerCRC;
 	
 	scanKeys();
 	int pressed = keysDown();
@@ -77,9 +76,9 @@ int main(int argc, const char* argv[]) {
 
 		if( UseNTRSplash == true ) {
 			fifoSendValue32(FIFO_USER_04, 1);
-			// REG_SCFG_CLK = 0x80;
-			// New libnds function for going back to NTR clock speeds
-			setCpuClock(false);
+			// Disabled for now. Doesn't result in correct SCFG_CLK configuration during testing. Will go back to old method.
+			// setCpuClock(false);
+			REG_SCFG_CLK = 0x80;
 			swiWaitForVBlank();
 		}
 
@@ -119,7 +118,6 @@ int main(int argc, const char* argv[]) {
 	for (int i = 0; i < 20; i++) { swiWaitForVBlank(); }
 	
 	memcpy (gameid, ((const char*)ndsHeader) + 12, 4);
-	headerCRC = crc32((const char*)ndsHeader, sizeof(ndsHeader));
 
 	while(1) {
 		if(REG_SCFG_MC == 0x11) { 
