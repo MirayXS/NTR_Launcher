@@ -42,9 +42,6 @@
 
 #include "common.h"
 
-#define resetCpu_arm9() \
-		__asm volatile("swi 0x000000")
-
 volatile int arm9_stateFlag = ARM9_BOOT;
 volatile u32 arm9_errorCode = 0xFFFFFFFF;
 volatile bool arm9_errorClearBG = false;
