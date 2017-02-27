@@ -23,7 +23,7 @@
 #include <maxmod7.h>
 
 #include "resetslot.h"
-#include "launch_engine_arm7.h"
+#include "fifocheck.h"
 
 void VcountHandler() {
 	inputGetAndSend();
@@ -64,7 +64,7 @@ int main(void) {
 	fifoSendValue32(FIFO_USER_03, 1);
 	
 	while (1) {
-		runLaunchEngineCheck();
+		fifocheck();
 		swiWaitForVBlank();
 	}
 }

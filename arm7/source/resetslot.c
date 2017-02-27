@@ -1,7 +1,6 @@
 #include <nds.h>
 
 int PowerOnSlot() {
-    
     REG_SCFG_MC = 0x04;    // set state=1
     while(REG_SCFG_MC&1);
     
