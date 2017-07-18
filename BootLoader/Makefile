@@ -26,7 +26,6 @@ ARCH	:=	-mthumb-interwork -march=armv4t -mtune=arm7tdmi
 CFLAGS	:=	-g -Wall -O2\
 			-fomit-frame-pointer\
 			-ffast-math \
-			-Wall -Wextra -Werror \
 			$(ARCH)
 
 CFLAGS	+=	$(INCLUDE) -DARM7
@@ -109,10 +108,7 @@ $(TARGETBIN)	:	$(ARM7ELF)
 $(ARM7ELF)	:	$(OFILES)
 	@echo linking $(notdir $@)
 	@$(LD)  $(LDFLAGS) $(OFILES) $(LIBPATHS) $(LIBS) -o $@
- 
 
-
- 
 #---------------------------------------------------------------------------------------
 endif
 #---------------------------------------------------------------------------------------

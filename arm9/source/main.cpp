@@ -38,14 +38,12 @@
 // #define REG_SCFG_EXT	(*(vu32*)0x4004008)
 // #define REG_SCFG_MC		(*(vu32*)0x4004010)
 
-
 int main() {
 
-	// NTR Mode/Splash used by default
-	bool UseNTRSplash = true;
-	bool NTRCLOCK = true;
+	defaultExceptionHandler();
+
+	bool TWLCLOCK = false;
 	bool EnableSD = false;
-	bool HealthandSafety_MSG = true;
 
 	// If slot is powered off, tell Arm7 slot power on is required.
 	if(REG_SCFG_MC == 0x11) { fifoSendValue32(FIFO_USER_02, 1); }
@@ -54,60 +52,40 @@ int main() {
 	u32 ndsHeader[0x80];
 	char gameid[4];
 
-	char *p = (char*)PersonalData->name;
-		// text
-		for (int i = 0; i < 10; i++) {
-			if (p[i*2] == 0x00)
-				p[i*2/2] = 0;
-			else
-				p[i*2/2] = p[i*2];
-		}
+	BootSplashInit();
 
 	if (fatInitDefault()) {
 		CIniFile ntrlauncher_config( "sd:/nds/ntr_launcher.ini" );
 		
-		if(ntrlauncher_config.GetInt("NTRLAUNCHER","NTRCLOCK",0) == 0) { NTRCLOCK = false; }
+		if(ntrlauncher_config.GetInt("NTRLAUNCHER","TWLCLOCK",0) == 0) { /* */ } else {  TWLCLOCK = true; }
 		
-		if(ntrlauncher_config.GetInt("NTRLAUNCHER","NTRSPLASH",0) == 0) { UseNTRSplash = false; }
-
-		if(ntrlauncher_config.GetInt("NTRLAUNCHER","HEALTH&SAFETY_MSG",0) == 0) { HealthandSafety_MSG = false; }
-
-		if(ntrlauncher_config.GetInt("NTRLAUNCHER","DISABLEANIMATION",0) == 0) {
-			BootSplashInit(UseNTRSplash, HealthandSafety_MSG, PersonalData->language);
-		} else {
-			if(REG_SCFG_MC == 0x11) { 
-				BootSplashInit(UseNTRSplash, HealthandSafety_MSG, PersonalData->language);
-			}
-		}
-
-		if( NTRCLOCK == true ) {
+		if( TWLCLOCK == false ) {
 			fifoSendValue32(FIFO_USER_04, 1);
-			// Disabled for now. Doesn't result in correct SCFG_CLK configuration during testing. Will go back to old method.
-			// setCpuClock(false);
 			REG_SCFG_CLK = 0x80;
 			swiWaitForVBlank();
 		}
 
-		if(ntrlauncher_config.GetInt("NTRLAUNCHER","ENABLESD",0) == 1) {
+		if(ntrlauncher_config.GetInt("NTRLAUNCHER","ENABLESD",0) == 0) { /* */ } else {
 			EnableSD = true;
 			// Tell Arm7 to use alternate SCFG_EXT values.
 			fifoSendValue32(FIFO_USER_05, 1);
 		}
 
-		if(ntrlauncher_config.GetInt("NTRLAUNCHER","TWLMODE",0) == 1) {
+		if(ntrlauncher_config.GetInt("NTRLAUNCHER","TWLMODE",0) == 0) {
+			if(ntrlauncher_config.GetInt("NTRLAUNCHER","NTRTOUCH",0) == 0) { /* Nothing */ } else { fifoSendValue32(FIFO_USER_08, 1); }
+		} else {
 			// Tell Arm7 not to switch into NTR mode (this will only work on alt build of NTR Launcher)
 			fifoSendValue32(FIFO_USER_06, 1);
 		}
 
-		if(ntrlauncher_config.GetInt("NTRLAUNCHER","RESETSLOT1",0) == 1) {
+		if(ntrlauncher_config.GetInt("NTRLAUNCHER","RESETSLOT1",0) == 0) { /* */ } else {
 			fifoSendValue32(FIFO_USER_02, 1);
 			fifoSendValue32(FIFO_USER_07, 1);
 		}
-
+		
 	} else {
 		fifoSendValue32(FIFO_USER_02, 1);
 		fifoSendValue32(FIFO_USER_07, 1);
-		BootSplashInit(UseNTRSplash, HealthandSafety_MSG, PersonalData->language);
 	}
 
 	// Tell Arm7 it's ready for card reset (if card reset is nessecery)
@@ -117,19 +95,22 @@ int main() {
 
 	// Wait for card to stablize before continuing
 	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
-
+	
 	sysSetCardOwner (BUS_OWNER_ARM9);
 
 	getHeader (ndsHeader);
-
+	
 	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
 	
 	memcpy (gameid, ((const char*)ndsHeader) + 12, 4);
 
 	while(1) {
-		if(REG_SCFG_MC == 0x11) { 
-		break; } else {
-			runLaunchEngine (NTRCLOCK, EnableSD);
+		if(REG_SCFG_MC == 0x11) {
+			ErrorScreen();
+			for (int i = 0; i < 300; i++) { swiWaitForVBlank(); }
+			break;
+		} else {
+			runLaunchEngine (TWLCLOCK, EnableSD);
 		}
 	}
 	return 0;

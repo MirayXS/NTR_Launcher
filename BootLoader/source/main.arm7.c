@@ -229,6 +229,13 @@ void arm7_startBinary (void)
 
 void arm7_main (void) {
 	
+	if(REG_SCFG_ROM == 0x703) {
+		REG_MBK6=0x09403900;
+		REG_MBK7=0x09803940;
+		REG_MBK8=0x09C03980;
+		REG_MBK9=0xFCFFFF0F;
+	}
+
 	int errorCode;
 	
 	// Wait for ARM9 to at least start

@@ -24,14 +24,10 @@ extern "C" {
 #endif
 
 void vramcpy_ui (void* dest, const void* src, int size);
-void BootJingle (void);
-void BootJingleDSi (void);
-void BootSplashDSi (bool HealthandSafety_MSG, int language);
+void ErrorScreen (void);
 void CartridgePrompt (void);
-void CartridgePromptDSi (void);
-void CartridgePromptNoHS (void);
-void BootSplashDS (bool HealthandSafety_MSG, int language);
-void BootSplashInit (bool UseNTRSplash, bool HealthandSafety_MSG, int language);
+void LoadScreen (void);
+void BootSplashInit (void);
 
 #ifdef __cplusplus
 }
