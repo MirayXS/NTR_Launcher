@@ -35,7 +35,8 @@ void vramcpy (void* dst, const void* src, int len)
 }	
 
 // Basic engine with no cheat related code.
-void runLaunchEngine (bool TWLCLOCK, bool EnableSD)
+// void runLaunchEngine (bool TWLCLOCK, bool EnableSD)
+void runLaunchEngine(bool TWLCLOCK)
 {
 
 	irqDisable(IRQ_ALL);
@@ -52,22 +53,21 @@ void runLaunchEngine (bool TWLCLOCK, bool EnableSD)
 	// Give the VRAM to the ARM7
 	VRAM_C_CR = VRAM_ENABLE | VRAM_C_ARM7_0x06000000;
 	
-	if( TWLCLOCK ) {
-		if( EnableSD ) {
-			REG_SCFG_EXT=0x83002000;
-		} else {
-			REG_SCFG_EXT=0x03002000;
-		}
-	} else {
-		if( EnableSD ) {
-			REG_SCFG_EXT=0x83000000;
-		} else {
-			REG_SCFG_EXT=0x03000000;
-		}
-	}
-	
 	// Reset into a passme loop
 	REG_EXMEMCNT |= ARM7_OWNS_ROM | ARM7_OWNS_CARD;
+
+	*((vu32*)REG_MBK1)=0x8D898581;
+	*((vu32*)REG_MBK2)=0x91898581;
+	*((vu32*)REG_MBK3)=0x91999591;
+	*((vu32*)REG_MBK4)=0x91898581;
+	*((vu32*)REG_MBK5)=0x91999591;
+
+	REG_MBK6=0x00003000;
+	REG_MBK7=0x00003000;
+	REG_MBK8=0x00003000;
+
+	if( TWLCLOCK ) { REG_SCFG_EXT=0x03002000; } else { REG_SCFG_EXT=0x03000000; }
+
 	*((vu32*)0x027FFFFC) = 0;
 	*((vu32*)0x027FFE04) = (u32)0xE59FF018;
 	*((vu32*)0x027FFE24) = (u32)0x027FFE04;

@@ -50,9 +50,7 @@ volatile u32 arm9_BLANK_RAM = 0;
 /*-------------------------------------------------------------------------
 External functions
 --------------------------------------------------------------------------*/
-// extern void arm9_clearCache (void);
-// arm9_clearCache (void);
-void arm9_clearMPU (void);
+extern void arm9_clearCache(void);
 
 /*-------------------------------------------------------------------------
 arm9_errorOutput
@@ -158,8 +156,7 @@ void arm9_main (void) {
 	REG_IE = 0;
 	REG_IF = ~0;
 
-	// arm9_clearCache();
-	arm9_clearMPU;
+	arm9_clearCache();
 	
 	for (i=0; i<16*1024; i+=4) {  //first 16KB
 		(*(vu32*)(i+0x00000000)) = 0x00000000;      //clear ITCM
@@ -222,17 +219,6 @@ void arm9_main (void) {
 	VRAM_I_CR = 0;
 	REG_POWERCNT  = 0x820F;
 
-	if(REG_SCFG_ROM == 0x3) {
-		*((vu32*)REG_MBK1)=0x8D898581;
-		*((vu32*)REG_MBK2)=0x91898581;
-		*((vu32*)REG_MBK3)=0x91999591;
-		*((vu32*)REG_MBK4)=0x91898581;
-		*((vu32*)REG_MBK5)=0x91999591;
-	
-		REG_MBK6=0x00003000;
-		REG_MBK7=0x00003000;
-		REG_MBK8=0x00003000;
-	}
 	// set ARM9 state to ready and wait for it to change again
 	arm9_stateFlag = ARM9_READY;
 	while ( arm9_stateFlag != ARM9_BOOTBIN ) {
@@ -250,6 +236,7 @@ void arm9_main (void) {
 	while(REG_VCOUNT==191);
 	
 	// arm9_errorOutput (*(u32*)(first), true);
+
 
 	((void (*)())(*(u32*)(0x27FFE24)))();
 }

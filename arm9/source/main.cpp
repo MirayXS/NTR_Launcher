@@ -40,11 +40,10 @@
 
 int main() {
 
-	defaultExceptionHandler();
-
+	// defaultExceptionHandler();
+	
 	bool TWLCLOCK = false;
-	bool EnableSD = false;
-
+	
 	// If slot is powered off, tell Arm7 slot power on is required.
 	if(REG_SCFG_MC == 0x11) { fifoSendValue32(FIFO_USER_02, 1); }
 	if(REG_SCFG_MC == 0x10) { fifoSendValue32(FIFO_USER_02, 1); }
@@ -55,37 +54,22 @@ int main() {
 	BootSplashInit();
 
 	if (fatInitDefault()) {
-		CIniFile ntrlauncher_config( "sd:/nds/ntr_launcher.ini" );
+		CIniFile ntrlauncher_config( "sd:/nds/NTR_Launcher.ini" );
 		
-		if(ntrlauncher_config.GetInt("NTRLAUNCHER","TWLCLOCK",0) == 0) { /* */ } else {  TWLCLOCK = true; }
-		
-		if( TWLCLOCK == false ) {
-			fifoSendValue32(FIFO_USER_04, 1);
-			REG_SCFG_CLK = 0x80;
-			swiWaitForVBlank();
-		}
-
-		if(ntrlauncher_config.GetInt("NTRLAUNCHER","ENABLESD",0) == 0) { /* */ } else {
-			EnableSD = true;
-			// Tell Arm7 to use alternate SCFG_EXT values.
-			fifoSendValue32(FIFO_USER_05, 1);
-		}
-
-		if(ntrlauncher_config.GetInt("NTRLAUNCHER","TWLMODE",0) == 0) {
-			if(ntrlauncher_config.GetInt("NTRLAUNCHER","NTRTOUCH",0) == 0) { /* Nothing */ } else { fifoSendValue32(FIFO_USER_08, 1); }
-		} else {
-			// Tell Arm7 not to switch into NTR mode (this will only work on alt build of NTR Launcher)
-			fifoSendValue32(FIFO_USER_06, 1);
-		}
-
 		if(ntrlauncher_config.GetInt("NTRLAUNCHER","RESETSLOT1",0) == 0) { /* */ } else {
 			fifoSendValue32(FIFO_USER_02, 1);
-			fifoSendValue32(FIFO_USER_07, 1);
+			fifoSendValue32(FIFO_USER_04, 1);
 		}
+
+		if(ntrlauncher_config.GetInt("NTRLAUNCHER","TWLCLOCK",0) == 0) {
+			fifoSendValue32(FIFO_USER_05, 1);
+			REG_SCFG_CLK = 0x80;
+			swiWaitForVBlank();
+		} else { REG_SCFG_CLK = 0x85; TWLCLOCK = true; }
 		
 	} else {
 		fifoSendValue32(FIFO_USER_02, 1);
-		fifoSendValue32(FIFO_USER_07, 1);
+		fifoSendValue32(FIFO_USER_04, 1);
 	}
 
 	// Tell Arm7 it's ready for card reset (if card reset is nessecery)
@@ -93,14 +77,13 @@ int main() {
 	// Waits for Arm7 to finish card reset (if nessecery)
 	fifoWaitValue32(FIFO_USER_03);
 
-	// Wait for card to stablize before continuing
-	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
+	for (int i = 0; i < 40; i++) { swiWaitForVBlank(); }
 	
 	sysSetCardOwner (BUS_OWNER_ARM9);
 
 	getHeader (ndsHeader);
 	
-	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
+	for (int i = 0; i < 40; i++) { swiWaitForVBlank(); }
 	
 	memcpy (gameid, ((const char*)ndsHeader) + 12, 4);
 
@@ -110,7 +93,7 @@ int main() {
 			for (int i = 0; i < 300; i++) { swiWaitForVBlank(); }
 			break;
 		} else {
-			runLaunchEngine (TWLCLOCK, EnableSD);
+			runLaunchEngine(TWLCLOCK);
 		}
 	}
 	return 0;
