@@ -6,4 +6,4 @@ Launcher side of NitroHax without the cheat engine. Nothing much else to say abo
 The source to "Launch DS Cart" on FileTrip was never released. I rebuilt it after ahezard ported NitroHax to latest devkitarm. This project is GNU licensed so that original DS Launcher on File Trip should have included source anyways.
 That has been corrected here. :D
 
-Credits go to Chism for NitroHax which this source is based from.
+Credits go to Chism for NitroHax which this source is based from and WinterMute for dslink source/reset code.

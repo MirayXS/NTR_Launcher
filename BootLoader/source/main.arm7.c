@@ -49,7 +49,11 @@
 #include "common.h"
 #include "read_card.h"
 
-void arm7_clearmem (void* loc, size_t len);
+/*-------------------------------------------------------------------------
+External functions
+--------------------------------------------------------------------------*/
+extern void arm7_clearmem (void* loc, size_t len);
+extern void arm7_reset (void);
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Important things
@@ -60,27 +64,13 @@ tNDSHeader* ndsHeader = (tNDSHeader*)NDS_HEAD;
 // Used for debugging purposes
 /* Disabled for now. Re-enable to debug problems
 static void errorOutput (u32 code) {
-	// Wait until the ARM9 is ready
-	while (arm9_stateFlag != ARM9_READY);
-	// Set the error code, then tell ARM9 to display it
+// Set the error code, then set our state to "error"
 	arm9_errorCode = code;
-	arm9_errorClearBG = true;
-	arm9_stateFlag = ARM9_DISPERR;
+	ipcSendState(ARM7_ERR);
 	// Stop
 	while(1);
 }
 */
-
-static void debugOutput (u32 code) {
-	// Wait until the ARM9 is ready
-	while (arm9_stateFlag != ARM9_READY);
-	// Set the error code, then tell ARM9 to display it
-	arm9_errorCode = code;
-	arm9_errorClearBG = false;
-	arm9_stateFlag = ARM9_DISPERR;
-	// Wait for completion
-	while (arm9_stateFlag != ARM9_READY);
-}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Firmware stuff
@@ -201,30 +191,6 @@ int arm7_loadBinary (void) {
 }
 
 
-/*-------------------------------------------------------------------------
-arm7_startBinary
-Jumps to the ARM7 NDS binary in sync with the display and ARM9
-Written by Darkain, modified by Chishm.
---------------------------------------------------------------------------*/
-void arm7_startBinary (void)
-{
-	// Wait until the ARM9 is ready
-	while (arm9_stateFlag != ARM9_READY);
-
-	while(REG_VCOUNT!=191);
-	while(REG_VCOUNT==191);
-	
-	// Get the ARM9 to boot
-	arm9_stateFlag = ARM9_BOOTBIN;
-
-	while(REG_VCOUNT!=191);
-	while(REG_VCOUNT==191);
-
-	// Start ARM7
-	((void (*)())(*(u32*)(0x27FFE34)))();
-}
-
-
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Main function
 
@@ -232,26 +198,28 @@ void arm7_main (void) {
 
 	int errorCode;
 	
-	// Wait for ARM9 to at least start
-	while (arm9_stateFlag < ARM9_START);
-
-	debugOutput (ERR_STS_CLR_MEM);
+	// Synchronise start
+	while (ipcRecvState() != ARM9_START);
+	ipcSendState(ARM7_START);
 	
+	// Wait until ARM9 is ready
+	while (ipcRecvState() != ARM9_READY);
+
+	ipcSendState(ARM7_MEMCLR);
+
 	// Get ARM7 to clear RAM
 	arm7_resetMemory();	
 
-	debugOutput (ERR_STS_LOAD_BIN);
+	ipcSendState(ARM7_LOADBIN);
 
 	// Load the NDS file
 	errorCode = arm7_loadBinary();
 	if (errorCode) {
-		debugOutput(errorCode);
+		// errorOutput(errorCode);
 	}
 
-	debugOutput (ERR_STS_START);
+	ipcSendState(ARM7_BOOTBIN);	
 
-	arm7_startBinary();
-	
-	return;
+	arm7_reset();
 }
 

@@ -51,14 +51,19 @@ volatile u32 arm9_BLANK_RAM = 0;
 External functions
 --------------------------------------------------------------------------*/
 extern void arm9_clearCache(void);
+extern void arm9_reset (void);
 
 /*-------------------------------------------------------------------------
 arm9_errorOutput
 Displays an error code on screen.
+
+Each box is 2 bits, and left-to-right is most-significant bits to least.
+Red = 00, Yellow = 01, Green = 10, Blue = 11
+
 Written by Chishm
 --------------------------------------------------------------------------*/
 /* Re-enable for debugging.
-static void arm9_errorOutput (u32 code, bool clearBG) {
+static void arm9_errorOutput (u32 code) {
 	int i, j, k;
 	u16 colour;
 	
@@ -66,11 +71,9 @@ static void arm9_errorOutput (u32 code, bool clearBG) {
 	REG_DISPCNT = MODE_FB0;
 	VRAM_A_CR = VRAM_ENABLE;
 	
-	if (clearBG) {
-		// Clear display
-		for (i = 0; i < 256*192; i++) {
-			VRAM_A[i] = 0x0000;
-		}
+	// Clear display
+	for (i = 0; i < 256*192; i++) {
+		VRAM_A[i] = 0x0000;
 	}
 	
 	// Draw boxes of colour, signifying error codes
@@ -95,51 +98,31 @@ static void arm9_errorOutput (u32 code, bool clearBG) {
 		}
 	}
 
-	if ((code >> 8) != 0) {
-		// Low 16 bits
-		for (i = 0; i < 8; i++) {						// Pair of bits to use
-			if (((code>>(14-2*i))&3) == 0) {
-				colour = 0x001F; // Red
-			} else if (((code>>(14-2*i))&3) == 1) {
-				colour = 0x03FF; // Yellow
-			} else if (((code>>(14-2*i))&3) == 2) {
-				colour = 0x03E0; // Green
-			} else {
-				colour = 0x7C00; // Blue
-			}
-			for (j = 103; j < 119; j++) { 				// Row
-				for (k = 32*i+8; k < 32*i+24; k++) {	// Column
-					VRAM_A[j*256+k] = colour;
-				}
-			}
+	// Low 16 bits
+	for (i = 0; i < 8; i++) {						// Pair of bits to use
+		if (((code>>(14-2*i))&3) == 0) {
+			colour = 0x001F; // Red
+		} else if (((code>>(14-2*i))&3) == 1) {
+			colour = 0x03FF; // Yellow
+		} else if (((code>>(14-2*i))&3) == 2) {
+			colour = 0x03E0; // Green
+		} else {
+			colour = 0x7C00; // Blue		
 		}
-	} else {
-		// Low 8 bits
-		for (i = 0; i < 4; i++) {						// Pair of bits to use
-			if (((code>>(6-2*i))&3) == 0) {
-				colour = 0x001F; // Red
-			} else if (((code>>(6-2*i))&3) == 1) {
-				colour = 0x03FF; // Yellow
-			} else if (((code>>(6-2*i))&3) == 2) {
-				colour = 0x03E0; // Green
-			} else {
-				colour = 0x7C00; // Blue
-			}
-			for (j = 87; j < 103; j++) { 				// Row
-				for (k = 32*i+72; k < 32*i+88; k++) {	// Column
-					VRAM_A[j*256+k] = colour;
-				}
+		for (j = 103; j < 119; j++) { 				// Row
+			for (k = 32*i+8; k < 32*i+24; k++) {	// Column
+				VRAM_A[j*256+k] = colour;
 			}
 		}
 	}		
 }
-
 */
+
 /*-------------------------------------------------------------------------
 arm9_main
 Clears the ARM9's icahce and dcache
 Clears the ARM9's DMA channels and resets video memory
-Jumps to the ARM9 NDS binary in sync with the display and ARM7
+Jumps to the ARM9 NDS binary in sync with the  ARM7
 Written by Darkain, modified by Chishm
 --------------------------------------------------------------------------*/
 void arm9_main (void) {
@@ -150,11 +133,16 @@ void arm9_main (void) {
 	WRAM_CR = 0x03;
 	REG_EXMEMCNT = 0xE880;
 
-	arm9_stateFlag = ARM9_START;
-	
+	// Disable interrupts
 	REG_IME = 0;
 	REG_IE = 0;
 	REG_IF = ~0;
+
+	// Synchronise start
+	ipcSendState(ARM9_START);
+	while (ipcRecvState() != ARM7_START);
+
+	ipcSendState(ARM9_MEMCLR);
 
 	arm9_clearCache();
 	
@@ -167,12 +155,40 @@ void arm9_main (void) {
 		(*(vu32*)(i+0x00000000)) = 0x00000000;      //clear ITCM
 	}
 
-	arm9_stateFlag = ARM9_MEMCLR;
-
 	(*(vu32*)0x00803FFC) = 0;   //IRQ_HANDLER ARM9 version
 	(*(vu32*)0x00803FF8) = ~0;  //VBLANK_INTR_WAIT_FLAGS ARM9 version
 
-	//clear out ARM9 DMA channels
+
+	// Clear out FIFO
+	REG_IPC_FIFO_CR = IPC_FIFO_ENABLE | IPC_FIFO_SEND_CLEAR;
+	REG_IPC_FIFO_CR = 0;
+
+	// Blank out VRAM
+	VRAM_A_CR = 0x80;
+	VRAM_B_CR = 0x80;
+	// Don't mess with the VRAM used for execution
+	//	VRAM_C_CR = 0;
+ 	VRAM_D_CR = 0x80;
+ 	VRAM_E_CR = 0x80;
+ 	VRAM_F_CR = 0x80;
+ 	VRAM_G_CR = 0x80;
+ 	VRAM_H_CR = 0x80;
+ 	VRAM_I_CR = 0x80;
+ 	BG_PALETTE[0] = 0xFFFF;
+ 	dmaFill((void*)&arm9_BLANK_RAM, BG_PALETTE+1, (2*1024)-2);
+ 	dmaFill((void*)&arm9_BLANK_RAM, OAM,     2*1024);
+ 	dmaFill((void*)&arm9_BLANK_RAM, VRAM_A,  256*1024);		// Banks A, B
+ 	dmaFill((void*)&arm9_BLANK_RAM, VRAM_D,  272*1024);		// Banks D, E, F, G, H, I
+ 
+ 	// Clear out display registers
+ 	vu16 *mainregs = (vu16*)0x04000000;
+ 	vu16 *subregs = (vu16*)0x04001000;
+ 	for (i=0; i<43; i++) {
+ 		mainregs[i] = 0;
+ 		subregs[i] = 0;
+ 	}
+ 
+	// Clear out ARM9 DMA channels
 	for (i=0; i<4; i++) {
 		DMA_CR(i) = 0;
 		DMA_SRC(i) = 0;
@@ -180,29 +196,6 @@ void arm9_main (void) {
 		TIMER_CR(i) = 0;
 		TIMER_DATA(i) = 0;
 	}
-	
-	// Clear out FIFO
-	REG_IPC_SYNC = 0;
-	REG_IPC_FIFO_CR = IPC_FIFO_ENABLE | IPC_FIFO_SEND_CLEAR;
-	REG_IPC_FIFO_CR = 0;
-
-	VRAM_A_CR = 0x80;
-	VRAM_B_CR = 0x80;
-// Don't mess with the VRAM used for execution
-//	VRAM_C_CR = 0;
-	VRAM_D_CR = 0x80;
-	VRAM_E_CR = 0x80;
-	VRAM_F_CR = 0x80;
-	VRAM_G_CR = 0x80;
-	VRAM_H_CR = 0x80;
-	VRAM_I_CR = 0x80;
-	BG_PALETTE[0] = 0xFFFF;
-	dmaFill((void*)&arm9_BLANK_RAM, BG_PALETTE+1, (2*1024)-2);
-	dmaFill((void*)&arm9_BLANK_RAM, OAM,     2*1024);
-	dmaFill((void*)&arm9_BLANK_RAM, (void*)0x04000000, 0x56);  //clear main display registers
-	dmaFill((void*)&arm9_BLANK_RAM, (void*)0x04001000, 0x56);  //clear sub  display registers
-	dmaFill((void*)&arm9_BLANK_RAM, VRAM_A,  256*1024);		// Banks A, B
-	dmaFill((void*)&arm9_BLANK_RAM, VRAM_D,  272*1024);		// Banks D, E, F, G, H, I
 
 	REG_DISPSTAT = 0;
 	videoSetMode(0);
@@ -219,25 +212,21 @@ void arm9_main (void) {
 	VRAM_I_CR = 0;
 	REG_POWERCNT  = 0x820F;
 
-	// set ARM9 state to ready and wait for it to change again
-	arm9_stateFlag = ARM9_READY;
-	while ( arm9_stateFlag != ARM9_BOOTBIN ) {
-		if (arm9_stateFlag == ARM9_DISPERR) {
+
+	// set ARM9 state to ready and wait for instructions from ARM7
+	ipcSendState(ARM9_READY);
+	while (ipcRecvState() != ARM7_BOOTBIN) {
+		if (ipcRecvState() == ARM7_ERR) {
 			// Re-enable for debugging
-			// arm9_errorOutput (arm9_errorCode, arm9_errorClearBG);
-			if ( arm9_stateFlag == ARM9_DISPERR) {
-				arm9_stateFlag = ARM9_READY;
-			}
+			// arm9_errorOutput (arm9_errorCode);
+			// Halt after displaying error code
+			while(1);
 		}
 	}
 	
-	// wait for vblank then boot
-	while(REG_VCOUNT!=191);
-	while(REG_VCOUNT==191);
-	
 	// arm9_errorOutput (*(u32*)(first), true);
 
-
-	((void (*)())(*(u32*)(0x27FFE24)))();
+	// ((void (*)())(*(u32*)(0x27FFE24)))();
+	arm9_reset();
 }
 
