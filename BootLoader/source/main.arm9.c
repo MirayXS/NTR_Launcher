@@ -215,18 +215,19 @@ void arm9_main (void) {
 
 	// set ARM9 state to ready and wait for instructions from ARM7
 	ipcSendState(ARM9_READY);
+	// Re-enable for debugging
+	/*
 	while (ipcRecvState() != ARM7_BOOTBIN) {
 		if (ipcRecvState() == ARM7_ERR) {
-			// Re-enable for debugging
-			// arm9_errorOutput (arm9_errorCode);
+			arm9_errorOutput (arm9_errorCode);
 			// Halt after displaying error code
 			while(1);
 		}
 	}
-	
+	*/
+
 	// arm9_errorOutput (*(u32*)(first), true);
 
-	// ((void (*)())(*(u32*)(0x27FFE24)))();
 	arm9_reset();
 }
 

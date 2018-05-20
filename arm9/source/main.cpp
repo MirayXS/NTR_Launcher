@@ -32,21 +32,15 @@
 #include "crc.h"
 #include "version.h" 
 
-// #define REG_ROMCTRL		(*(vu32*)0x40001A4)
-// #define REG_SCFG_ROM	(*(vu32*)0x4004000)
-// #define REG_SCFG_CLK	(*(vu32*)0x4004004)
-// #define REG_SCFG_EXT	(*(vu32*)0x4004008)
-// #define REG_SCFG_MC		(*(vu32*)0x4004010)
-
 int main() {
 
-	// defaultExceptionHandler();
+	defaultExceptionHandler();
 	
 	bool TWLCLOCK = false;
 	
 	// If slot is powered off, tell Arm7 slot power on is required.
-	if(REG_SCFG_MC == 0x11) { fifoSendValue32(FIFO_USER_02, 1); }
-	if(REG_SCFG_MC == 0x10) { fifoSendValue32(FIFO_USER_02, 1); }
+	if(REG_SCFG_MC == 0x11) { enableSlot1(); }
+	if(REG_SCFG_MC == 0x10) { enableSlot1(); }
 
 	u32 ndsHeader[0x80];
 	char gameid[4];
@@ -57,33 +51,30 @@ int main() {
 		CIniFile ntrlauncher_config( "sd:/nds/NTR_Launcher.ini" );
 		
 		if(ntrlauncher_config.GetInt("NTRLAUNCHER","RESETSLOT1",0) == 0) { /* */ } else {
-			fifoSendValue32(FIFO_USER_02, 1);
-			fifoSendValue32(FIFO_USER_04, 1);
+			disableSlot1();
+			for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
+			enableSlot1();
 		}
 
 		if(ntrlauncher_config.GetInt("NTRLAUNCHER","TWLCLOCK",0) == 0) {
-			fifoSendValue32(FIFO_USER_05, 1);
+			fifoSendValue32(FIFO_USER_01, 1);
 			REG_SCFG_CLK = 0x80;
 			swiWaitForVBlank();
 		} else { REG_SCFG_CLK = 0x85; TWLCLOCK = true; }
 		
 	} else {
-		fifoSendValue32(FIFO_USER_02, 1);
-		fifoSendValue32(FIFO_USER_04, 1);
+		disableSlot1();
+		for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
+		enableSlot1();
 	}
 
-	// Tell Arm7 it's ready for card reset (if card reset is nessecery)
-	fifoSendValue32(FIFO_USER_01, 1);
-	// Waits for Arm7 to finish card reset (if nessecery)
-	fifoWaitValue32(FIFO_USER_03);
-
-	for (int i = 0; i < 40; i++) { swiWaitForVBlank(); }
+	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
 	
 	sysSetCardOwner (BUS_OWNER_ARM9);
 
 	getHeader (ndsHeader);
 	
-	for (int i = 0; i < 40; i++) { swiWaitForVBlank(); }
+	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
 	
 	memcpy (gameid, ((const char*)ndsHeader) + 12, 4);
 

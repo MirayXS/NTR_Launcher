@@ -53,12 +53,6 @@ int main(void) {
 	i2cWriteRegister(0x4A, 0x12, 0x00);	// Press power-button for auto-reset
 	i2cWriteRegister(0x4A, 0x70, 0x01);	// Bootflag = Warmboot/SkipHealthSafety
 
-	fifoWaitValue32(FIFO_USER_01);
-	if(fifoCheckValue32(FIFO_USER_02)) { 
-		if(fifoCheckValue32(FIFO_USER_04)) { TWL_ResetSlot1(); } else { PowerOnSlot(); }
-	}
-	fifoSendValue32(FIFO_USER_03, 1);
-		
 	while (1) {
 		fifocheck();
 		swiWaitForVBlank();

@@ -24,7 +24,7 @@ void fifocheck (void)
 	{
 		REG_SCFG_ROM = 0x703;
 
-		if(fifoCheckValue32(FIFO_USER_05)) { REG_SCFG_CLK = 0x0180; } else { REG_SCFG_CLK = 0x0187; }
+		if(fifoCheckValue32(FIFO_USER_01)) { REG_SCFG_CLK = 0x0180; } else { REG_SCFG_CLK = 0x0187; }
 		
 		REG_MBK6=0x09403900;
 		REG_MBK7=0x09803940;
