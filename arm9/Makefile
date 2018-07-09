@@ -34,7 +34,7 @@ CXXFLAGS	:=	$(CFLAGS)
 
 ASFLAGS	:=	-g $(ARCH) $(INCLUDE)
 
-LDFLAGS	=	-specs=ds_arm9.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
+LDFLAGS	=	-specs=dsi_arm9.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project

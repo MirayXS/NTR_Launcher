@@ -87,11 +87,6 @@ void BootSplashInit() {
 		bgMapSub[i] = (u16)i;
 	}
 	
-	if (REG_SCFG_MC == 0x11) {
-		do { CartridgePrompt(); }
-		while (REG_SCFG_MC == 0x11);
-	}
-	
 	LoadScreen();
 }
 

@@ -38,14 +38,18 @@ int main() {
 	
 	bool TWLCLOCK = false;
 	
-	// If slot is powered off, tell Arm7 slot power on is required.
-	if(REG_SCFG_MC == 0x11) { enableSlot1(); }
-	if(REG_SCFG_MC == 0x10) { enableSlot1(); }
-
 	u32 ndsHeader[0x80];
 	char gameid[4];
 
 	BootSplashInit();
+
+	if (REG_SCFG_MC == 0x11) {
+		do { CartridgePrompt(); }
+		while (REG_SCFG_MC == 0x11);
+		disableSlot1();
+		for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
+		enableSlot1();
+	}
 
 	if (fatInitDefault()) {
 		CIniFile ntrlauncher_config( "sd:/nds/NTR_Launcher.ini" );
@@ -67,19 +71,32 @@ int main() {
 		for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
 		enableSlot1();
 	}
-
+	
+	// If card is inserted but slot is powered off, turn slot-1 back on. This can happen with certain flashcarts that do not show up
+	// in DSi's System Menu. The console will always boot with the slot powered off for these type of cards.
+	// This is not an issue on 3DS however. TWL_FIRM doesn't care and will still power slot-1 as long as some kind of valid cart is
+	// inserted.
+	if(REG_SCFG_MC == 0x10) { 
+		disableSlot1();
+		for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
+		enableSlot1();
+	}
+	
 	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
 	
 	sysSetCardOwner (BUS_OWNER_ARM9);
-
+	
 	getHeader (ndsHeader);
 	
 	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
 	
 	memcpy (gameid, ((const char*)ndsHeader) + 12, 4);
+	
+	for (int i = 0; i < 15; i++) { swiWaitForVBlank(); }
 
 	while(1) {
-		if(REG_SCFG_MC == 0x11) {
+		// If SCFG_MC is returning as zero/null, this means SCFG_EXT registers are locked on arm9 or user attempted to run this while in NTR mode.
+		if(REG_SCFG_MC == 0x00) {
 			ErrorScreen();
 			for (int i = 0; i < 300; i++) { swiWaitForVBlank(); }
 			break;
