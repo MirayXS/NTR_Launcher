@@ -1,17 +1,46 @@
 @---------------------------------------------------------------------------------
 	.section ".init"
 	.global _start
+	.global dsiMode
+	.global language
+	.global sdAccess
+	.global scfgUnlock
+	.global twlMode
+	.global twlClock
+	.global boostVram
+	.global soundFreq
+	.global extendRam
 @---------------------------------------------------------------------------------
 	.align	4
 	.arm
 @---------------------------------------------------------------------------------
 _start:
 @---------------------------------------------------------------------------------
-	mov	r0, #0x04000000
-	mov	r1, #0
-	str	r1, [r0,#0x208]		@ REG_IME
-	str	r1, [r0,#0x210]		@ REG_IE
-	str	r1, [r0,#0x218]		@ REG_AUXIE
+	b	startUp
+
+dsiMode:
+	.word	0x00000000
+language:
+	.word	0x00000000
+sdAccess:
+	.word	0x00000000
+scfgUnlock:
+	.word	0x00000000
+twlMode:
+	.word	0x00000000
+twlClock:
+	.word	0x00000000
+boostVram:
+	.word	0x00000000
+soundFreq:
+	.word	0x00000000
+extendRam:
+	.word	0x00000000
+
+startUp:
+	mov	r0, #0x04000000		@ IME = 0;
+	add	r0, r0, #0x208
+	strh	r0, [r0]
 
 	mov	r0, #0x12		@ Switch to IRQ Mode
 	msr	cpsr, r0
@@ -38,7 +67,7 @@ _start:
 	bl	CopyMem
 
 @ Start ARM9 binary
-	ldr	r0, =0x027FFE24	
+	ldr	r0, =0x02FFFE24	
 	ldr	r1, =_arm9_start
 	str	r1, [r0]
 

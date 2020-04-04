@@ -20,7 +20,6 @@
 #define _COMMON_H
 
 #include <nds/dma.h>
-#include <nds/ipc.h>
 #include <stdlib.h>
 
 #define resetCpu() \
@@ -33,28 +32,18 @@ enum {	ERR_NONE=0x00, ERR_STS_CLR_MEM=0x01, ERR_STS_LOAD_BIN=0x02, ERR_STS_HOOK_
 		ERR_NOCHEAT=0x21, ERR_HOOK=0x22,
 	} ERROR_CODES;
 
-// Values fixed so they can be shared with ASM code
-enum {
-	ARM9_BOOT = 0,
-	ARM9_START = 1,
-	ARM9_RESET = 2,
-	ARM9_READY = 3,
-	ARM9_MEMCLR = 4
-	} ARM9_STATE;
+enum {ARM9_BOOT, ARM9_START, ARM9_MEMCLR, ARM9_READY, ARM9_BOOTBIN, ARM9_DISPERR, ARM9_SETSCFG} ARM9_STATE;
+extern tNDSHeader* ndsHeader;
+extern bool dsiModeConfirmed;
+extern bool arm9_dsiModeConfirmed;
+extern bool arm9_boostVram;
+extern bool arm9_scfgUnlock;
+extern bool arm9_TWLClockSpeeds;
+extern bool arm9_ExtendRam;
 
-enum {
-	ARM7_BOOT = 0,
-	ARM7_START = 1,
-	ARM7_RESET = 2,
-	ARM7_READY = 3,
-	ARM7_MEMCLR = 4,
-	ARM7_LOADBIN = 5,
-	ARM7_HOOKBIN = 6,
-	ARM7_BOOTBIN = 7,
-	ARM7_ERR = 8
-	} ARM7_STATE;
-
+extern volatile int arm9_stateFlag;
 extern volatile u32 arm9_errorCode;
+extern volatile bool arm9_errorClearBG;
 
 static inline void dmaFill(const void* src, void* dest, uint32 size) {
 	DMA_SRC(3)  = (uint32)src;
@@ -67,14 +56,6 @@ static inline void copyLoop (u32* dest, const u32* src, size_t size) {
 	do {
 		*dest++ = *src++;
 	} while (size -= 4);
-}
-
-static inline void ipcSendState(uint8_t state) {
-	REG_IPC_SYNC = (state & 0x0f) << 8;
-}
-
-static inline uint8_t ipcRecvState(void) {
-	return (uint8_t)(REG_IPC_SYNC & 0x0f);
 }
 
 #endif // _COMMON_H

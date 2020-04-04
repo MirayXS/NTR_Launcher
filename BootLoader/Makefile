@@ -21,14 +21,14 @@ SPECS		:=  specs
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-ARCH	:=	-mthumb-interwork -march=armv4t -mtune=arm7tdmi
+ARCH	:=	-mthumb-interwork -march=armv4t
 
 CFLAGS	:=	-g -Wall -O2\
-			-fomit-frame-pointer\
+			-mcpu=arm7tdmi -mtune=arm7tdmi -fomit-frame-pointer\
 			-ffast-math \
 			$(ARCH)
 
-CFLAGS	+=	$(INCLUDE) -DARM7
+CFLAGS	+=	$(INCLUDE) -DARM7 -std=gnu99
 
 ASFLAGS	:=	-g $(ARCH) $(INCLUDE)
 LDFLAGS	:=	-nostartfiles -T$(CURDIR)/../load.ld -g $(ARCH) -Wl,-Map,$(TARGET).map
