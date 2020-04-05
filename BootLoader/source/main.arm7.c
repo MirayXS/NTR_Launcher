@@ -164,26 +164,20 @@ static void my_readUserSettings(tNDSHeader* ndsHeader) {
 	short calc2CRC = swiCRC16(0xFFFF, &slot2, sizeof(PERSONAL_DATA));
 
 	// Bail out if neither slot is valid
-	if (calc1CRC != slot1CRC && calc2CRC != slot2CRC) {
-		return;
-	}
+	if (calc1CRC != slot1CRC && calc2CRC != slot2CRC) { return; }
 
 	// If both slots are valid pick the most recent
 	if (calc1CRC == slot1CRC && calc2CRC == slot2CRC) { 
 		currentSettings = (slot2count == ((slot1count + 1) & 0x7f) ? &slot2 : &slot1); //if ((slot1count & 0x7F) == ((slot2count + 1) & 0x7F)) {
 	} else {
-		if (calc2CRC == slot2CRC) {
-			currentSettings = &slot2;
-		}
+		if (calc2CRC == slot2CRC) { currentSettings = &slot2; }
 	}
 
 	PERSONAL_DATA* personalData = (PERSONAL_DATA*)((u32)__NDSHeader - (u32)ndsHeader + (u32)PersonalData); //(u8*)((u32)ndsHeader - 0x180)
 
 	tonccpy(PersonalData, currentSettings, sizeof(PERSONAL_DATA));
 
-	if (useTwlCfg && (language == 0xFF || language == -1)) {
-		language = twlCfgLang;
-	}
+	if (useTwlCfg && (language == 0xFF || language == -1)) { language = twlCfgLang; }
 
 	if (language >= 0 && language <= 7) {
 		// Change language
@@ -428,15 +422,13 @@ static void NDSTouchscreenMode(void) {
 }
 
 // SDK 5
-static bool ROMsupportsDsiMode(const tNDSHeader* ndsHeader) {
-	return (ndsHeader->unitCode > 0);
-}
+static bool ROMsupportsDSiMode(const tNDSHeader* ndsHeader) { return (ndsHeader->unitCode > 0); }
 
 // SDK 5
-// static bool ROMisDsiEnhanced(const tNDSHeader* ndsHeader) { return (ndsHeader->unitCode == 0x02); }
+static bool ROMisDSiEnhanced(const tNDSHeader* ndsHeader) { return (ndsHeader->unitCode == 0x02); }
 
 // SDK 5
-// static bool ROMisDsiExclusive(const tNDSHeader* ndsHeader) { return (ndsHeader->unitCode == 0x03); }
+static bool ROMisDSiExclusive(const tNDSHeader* ndsHeader) { return (ndsHeader->unitCode == 0x03); }
 
 int arm7_loadBinary (const tDSiHeader* dsiHeaderTemp) {
 	u32 errorCode;
@@ -601,7 +593,7 @@ void fixDSBrowser(void) {
 
 
 static void setMemoryAddress(const tNDSHeader* ndsHeader) {
-	if (ROMsupportsDsiMode(ndsHeader)) {
+	if (ROMsupportsDSiMode(ndsHeader)) {
 	//	u8* deviceListAddr = (u8*)((u8*)0x02FFE1D4);
 	//	tonccpy(deviceListAddr, deviceList_bin, deviceList_bin_len);
 
@@ -659,15 +651,23 @@ void arm7_main (void) {
 
 	// Load the NDS file
 	errorCode = arm7_loadBinary(dsiHeaderTemp);
-	if (errorCode) {
-		debugOutput(errorCode);
-	}
+	if (errorCode) { debugOutput(errorCode); }
+	
+	// Override some settings depending on if DSi Enhanced cart or DSi Exclusive cart is inserted
+	if (ROMisDSiEnhanced(&dsiHeaderTemp->ndshdr)) { extendRam = true; } // Required for TWL carts to boot properly. Disabled by default for NTR carts to allow WoodR4 to operate correctly.
+	
+	if (ROMisDSiExclusive(&dsiHeaderTemp->ndshdr)) {
+		twlClock = true;
+		extendRam = true;
+		boostVram = true;
+		dsiMode = true;
+	}	
 
 	if (dsiMode) {
 		if (twlMode == 2) {
 			dsiModeConfirmed = twlMode;
 		} else {
-			dsiModeConfirmed = twlMode && ROMsupportsDsiMode(&dsiHeaderTemp->ndshdr);
+			dsiModeConfirmed = twlMode && ROMsupportsDSiMode(&dsiHeaderTemp->ndshdr);
 		}
 	}
 
@@ -696,14 +696,10 @@ void arm7_main (void) {
 		} else {
 			REG_SCFG_CLK = 0x0180;
 		}
-		if (!sdAccess) {
-			REG_SCFG_EXT = 0x93FBFB06;
-		}
+		if (!sdAccess) { REG_SCFG_EXT = 0x93FBFB06; }
 	}
 
-	if (*(u32*)(NDS_HEADER+0xC) == 0x50524255) {
-		fixDSBrowser();
-	}
+	if (*(u32*)(NDS_HEADER+0xC) == 0x50524255) { fixDSBrowser(); }
 
 	if ((*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x52544E	// Download Play ROMs
 	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x4D5341		// Super Mario 64 DS
@@ -720,12 +716,14 @@ void arm7_main (void) {
 	toncset ((void*)0x023F0000, 0, 0x8000);		// Clear cheat data from main memory
 
 	debugOutput (ERR_STS_START);
+	
 	arm9_TWLClockSpeeds = twlClock;
 	arm9_boostVram = boostVram;
 	arm9_scfgUnlock = scfgUnlock;
 	arm9_dsiModeConfirmed = dsiModeConfirmed;
 	arm9_ExtendRam = extendRam;
 	//arm9_isSdk5 = isSdk5(moduleParams);
+	
 	
 	if (dsiModeConfirmed) { 
 		REG_SCFG_EXT = 0x93FBFB06;

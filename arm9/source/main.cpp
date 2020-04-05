@@ -27,14 +27,14 @@
 
 #include "inifile.h"
 #include "bootsplash.h"
+#include "bootsplash2.h"
 #include "launch_engine.h"
 #include "crc.h"
 #include "version.h" 
 
 sNDSHeader ndsHeader;
 
-off_t getFileSize(const char *fileName)
-{
+off_t getFileSize(const char *fileName) {
     FILE* fp = fopen(fileName, "rb");
     off_t fsize = 0;
     if (fp) {
@@ -46,8 +46,6 @@ off_t getFileSize(const char *fileName)
 
 	return fsize;
 }
-
-bool consoleOn = false;
 
 int main() {
 
@@ -63,18 +61,13 @@ int main() {
 	bool EnableSD = false;
 	bool slot1Init = false;
 	
-	int language = -1;	
+	bool UseAnimatedSplash = false;
+	bool UseNTRSplash = true;
+	bool HealthAndSafety_MSG = true;
+	
+	int language = -1;
 	
 	u32 ndsHeader[0x80];
-
-	BootSplashInit();
-
-	if (REG_SCFG_MC == 0x11) {
-		do { CartridgePrompt(); }
-		while (REG_SCFG_MC == 0x11);
-		fifoSendValue32(FIFO_USER_02, 1);
-		for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
-	}
 
 	if (fatInitDefault()) {
 		CIniFile ntrlauncher_config( "sd:/nds/NTR_Launcher.ini" );
@@ -87,15 +80,40 @@ int main() {
 		scfgUnlock = ntrlauncher_config.GetInt("NTRLAUNCHER","SCFGUNLOCK",0);
 		language = ntrlauncher_config.GetInt("NTRLAUNCHER", "LANGUAGE", -1);
 		slot1Init = ntrlauncher_config.GetInt("NTRLAUNCHER","RESETSLOT1",0);
+		
+		UseAnimatedSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","ANIMATEDSPLASH",0);
+		UseNTRSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","NTRSPLASH",0);		
+		HealthAndSafety_MSG = ntrlauncher_config.GetInt("NTRLAUNCHER","HEALTHSAFETYSPLASH",0);
 				
 		if(slot1Init) {
 			fifoSendValue32(FIFO_USER_04, 1);
-			// disableSlot1();
 			for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
-			// enableSlot1();
+		}
+	} else {		
+		fifoSendValue32(FIFO_USER_04, 1);
+	}
+	
+	if (!UseAnimatedSplash) { 
+		BootSplashInit(); 
+		if (REG_SCFG_MC == 0x11) {
+			do { CartridgePrompt(); }
+			while (REG_SCFG_MC == 0x11);
+			fifoSendValue32(FIFO_USER_02, 1);
+			for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
 		}
 	} else {
-		fifoSendValue32(FIFO_USER_04, 1);
+		char *p = (char*)PersonalData->name;
+		for (int i = 0; i < 10; i++) {
+			if (p[i*2] == 0x00) {
+				p[i*2/2] = 0;
+			} else {
+				p[i*2/2] = p[i*2];
+			}
+		}
+	
+		if (language == -1) { language = (PersonalData->language); }
+	
+		BootSplashInit2(UseNTRSplash, HealthAndSafety_MSG, language, false);
 	}
 	
 	// If card is inserted but slot is powered off, turn slot-1 back on. This can happen with certain flashcarts that do not show up
@@ -119,15 +137,16 @@ int main() {
 	cardReadHeader((uint8*)&ndsHeader);
 	
 	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
-	
-	// memcpy (gameid, ((const char*)ndsHeader) + 12, 4);	
-	// for (int i = 0; i < 15; i++) { swiWaitForVBlank(); }
 
 	while(1) {
 		// If SCFG_MC is returning as zero/null, this means SCFG_EXT registers are locked on arm9 or user attempted to run this while in NTR mode.
 		if((REG_SCFG_MC == 0x00) | (REG_SCFG_MC == 0x11) | (REG_SCFG_MC == 0x10)) {
-			ErrorScreen();
-			for (int i = 0; i < 300; i++) { swiWaitForVBlank(); }
+			if (UseAnimatedSplash) {
+				BootSplashInit2(false, false, 0, true);
+			} else {
+				ErrorScreen();
+				for (int i = 0; i < 300; i++) { swiWaitForVBlank(); }
+			}
 			break;
 		} else {
 			runLaunchEngine (EnableSD, language, scfgUnlock, TWLMODE, TWLCLK, TWLVRAM, soundFreq, TWLEXTRAM);

@@ -47,16 +47,13 @@ static u32 getRandomNumber(void) {
 				// guaranteed to be random.
 }
 
-static void decryptSecureArea (u32 gameCode, u32* secureArea, int iCardDevice)
-{
+static void decryptSecureArea (u32 gameCode, u32* secureArea, int iCardDevice) {
 	init_keycode (gameCode, 2, 8, iCardDevice);
 	crypt_64bit_down (secureArea);
 
 	init_keycode (gameCode, 3, 8, iCardDevice);
 
-	for (int i = 0; i < 0x200; i+= 2) {
-		crypt_64bit_down (secureArea + i);
-	}
+	for (int i = 0; i < 0x200; i+= 2) { crypt_64bit_down (secureArea + i); }
 }
 
 static struct {
@@ -77,11 +74,12 @@ static void initKey1Encryption (u8* cmdData, int iCardDevice) {
 	key1data.mmm = getRandomNumber() & 0x00000fff;
 	key1data.nnn = getRandomNumber() & 0x00000fff;
 
-    if(iCardDevice) //DSi
-      cmdData[7]=0x3D;	// CARD_CMD_ACTIVATE_BF2
-    else
-      cmdData[7]=CARD_CMD_ACTIVATE_BF;
-
+    if(iCardDevice) {
+		cmdData[7]=0x3D; //DSi // CARD_CMD_ACTIVATE_BF2
+    } else {
+		cmdData[7]=CARD_CMD_ACTIVATE_BF;
+	}
+	
 	cmdData[6] = (u8) (key1data.iii >> 4);
 	cmdData[5] = (u8) ((key1data.iii << 4) | (key1data.jjj >> 8));
 	cmdData[4] = (u8) key1data.jjj;
@@ -95,9 +93,7 @@ static void initKey1Encryption (u8* cmdData, int iCardDevice) {
 static void createEncryptedCommand (u8 command, u8* cmdData, u32 block) {
 	unsigned long iii, jjj;
 
-	if (command != CARD_CMD_SECURE_READ) {
-		block = key1data.llll;
-	}
+	if (command != CARD_CMD_SECURE_READ) { block = key1data.llll; }
 
 	if (command == CARD_CMD_ACTIVATE_SEC) {
 		iii = key1data.mmm;

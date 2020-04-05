@@ -292,40 +292,9 @@ void __attribute__((target("arm"))) arm9_main (void) {
 			// arm9_errorOutput (arm9_errorCode, arm9_errorClearBG);
 			if ( arm9_stateFlag == ARM9_DISPERR) { arm9_stateFlag = ARM9_READY; }
 		}
-		if (arm9_stateFlag == ARM9_SETSCFG) {
-			/*if (arm9_dsiModeConfirmed) {
-				REG_SCFG_EXT = 0x8307F100;
-				// REG_SCFG_CLK = 0x84;
-				if (arm9_TWLClockSpeeds) { 
-					REG_SCFG_CLK = 0x85;
-				} else { 
-					REG_SCFG_CLK = 0x84;
-				}
-			} else {
-				// REG_SCFG_EXT = 0x8300C000;
-				// REG_SCFG_EXT=0x83000000;
-				REG_SCFG_EXT=0x83000000;
-				if (arm9_ExtendRam) {
-					REG_SCFG_EXT |= BIT(14);
-					REG_SCFG_EXT |= BIT(15);
-				}
-				if (arm9_TWLClockSpeeds) {
-					// REG_SCFG_EXT=0x8300C000;
-				} else {
-					// REG_SCFG_EXT=0x83000000;
-				}
-				
-				if (arm9_boostVram) {
-					REG_SCFG_EXT |= BIT(13);	// Extended VRAM Access
-				}
-				
-				if (!arm9_scfgUnlock) {
-					// lock SCFG
-					REG_SCFG_EXT &= ~(1UL << 31);
-				}
-			}*/
-			arm9_stateFlag = ARM9_READY;
-		}
+		
+		// I don't set SCFG_EXT here anymore. The required changes to make WoodR4 work would crash Bootloader if set here.
+		if (arm9_stateFlag == ARM9_SETSCFG) { arm9_stateFlag = ARM9_READY; }
 	}
 	
 	VoidFn arm9code = (VoidFn)ndsHeader->arm9executeAddress;
@@ -347,8 +316,7 @@ void __attribute__((target("arm"))) arm9_main (void) {
 		if (arm9_ExtendRam) {
 			REG_SCFG_EXT |= BIT(14);
 			REG_SCFG_EXT |= BIT(15);
-		}
-		
+		}		
 		// Extended VRAM Access
 		if (arm9_boostVram) {  REG_SCFG_EXT |= BIT(13); }
 		
