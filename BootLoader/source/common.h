@@ -34,12 +34,13 @@ enum {	ERR_NONE=0x00, ERR_STS_CLR_MEM=0x01, ERR_STS_LOAD_BIN=0x02, ERR_STS_HOOK_
 
 enum {ARM9_BOOT, ARM9_START, ARM9_MEMCLR, ARM9_READY, ARM9_BOOTBIN, ARM9_DISPERR, ARM9_SETSCFG} ARM9_STATE;
 extern tNDSHeader* ndsHeader;
-extern bool dsiModeConfirmed;
+
 extern bool arm9_dsiModeConfirmed;
 extern bool arm9_boostVram;
 extern bool arm9_scfgUnlock;
 extern bool arm9_TWLClockSpeeds;
 extern bool arm9_ExtendRam;
+extern bool arm9_DebugMode;
 
 extern volatile int arm9_stateFlag;
 extern volatile u32 arm9_errorCode;

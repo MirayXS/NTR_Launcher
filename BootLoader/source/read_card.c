@@ -235,7 +235,7 @@ static void switchToTwlBlowfish(sNDSHeaderExt* ndsHeader) {
 	cardPolledTransfer(portFlagsKey1, NULL, 0, cmdData);
 
 	// The 0x800 bytes are modcrypted, so this function isn't ran
-	//decryptSecureArea (gameCode->key, secureArea, 1);
+	// decryptSecureArea (gameCode->key, secureArea, 1);
 
 	twlBlowfish = true;
 }
@@ -289,9 +289,8 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 
 	// Adjust card transfer method depending on the most significant bit of the chip ID
 	normalChip = ((*chipID) & 0x80000000) != 0;		// ROM chip ID MSB
-	if (!normalChip) {
-		portFlagsKey1 |= CARD_SEC_LARGE;
-	}
+	
+	if (!normalChip) { portFlagsKey1 |= CARD_SEC_LARGE; }
 
 	// 3Ciiijjj xkkkkkxx - Activate KEY1 Encryption Mode
 	initKey1Encryption (cmdData, 0);
@@ -356,11 +355,10 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
     }
 	cardPolledTransfer(portFlagsKey1, NULL, 0, cmdData);
 
-    //CycloDS doesn't like the dsi secure area being decrypted
-    if((ndsHeader->arm9romOffset != 0x4000) || secureArea[0] || secureArea[1]) {
-		decryptSecureArea (gameCode->key, secureArea, 0);
-	}
-
+    // CycloDS doesn't like the dsi secure area being decrypted
+    if((ndsHeader->arm9romOffset != 0x4000) || secureArea[0] || secureArea[1]) { decryptSecureArea (gameCode->key, secureArea, 0); }
+	// decryptSecureArea (gameCode->key, secureArea, 0);
+	
 	if (secureArea[0] == 0x72636e65 /*'encr'*/ && secureArea[1] == 0x6a624f79 /*'yObj'*/) {
 		// Secure area exists, so just clear the tag
 		secureArea[0] = 0xe7ffdeff;
@@ -382,7 +380,7 @@ void cardRead (u32 src, u32* dest, size_t size) {
 
 	size_t readSize;
 
-	if (src > ndsHeader->romSize) {  switchToTwlBlowfish(ndsHeader); }
+	if (src > ndsHeader->romSize) { switchToTwlBlowfish(ndsHeader);	}
 
 	if (src < CARD_SECURE_AREA_OFFSET) {
 		return;

@@ -10,6 +10,7 @@
 	.global boostVram
 	.global soundFreq
 	.global extendRam
+	.global debugMode
 @---------------------------------------------------------------------------------
 	.align	4
 	.arm
@@ -35,6 +36,8 @@ boostVram:
 soundFreq:
 	.word	0x00000000
 extendRam:
+	.word	0x00000000
+debugMode:
 	.word	0x00000000
 
 startUp:

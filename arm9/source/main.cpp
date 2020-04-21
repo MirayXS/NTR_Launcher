@@ -59,7 +59,7 @@ int main() {
 	bool TWLVRAM = false;
 	bool soundFreq = false;
 	bool EnableSD = false;
-	bool slot1Init = false;
+	bool slot1Init = false;	
 	
 	bool UseAnimatedSplash = false;
 	bool UseNTRSplash = true;
@@ -67,24 +67,30 @@ int main() {
 	
 	int language = -1;
 	
+	bool DebugMode = false;
+	
 	u32 ndsHeader[0x80];
 
 	if (fatInitDefault()) {
-		CIniFile ntrlauncher_config( "sd:/nds/NTR_Launcher.ini" );
+		CIniFile ntrlauncher_config( "sd:/NDS/NTR_Launcher.ini" );
 		
 		TWLCLK = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLCLOCK",0);
 		TWLVRAM = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLVRAM",0);
 		TWLEXTRAM = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLEXTRAM",0);
 		TWLMODE = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLMODE",0);		
 		soundFreq = ntrlauncher_config.GetInt("NTRLAUNCHER","SOUNDFREQ",0);
+		// EnableSD = ntrlauncher_config.GetInt("NTRLAUNCHER","SDACCESS",0);
 		scfgUnlock = ntrlauncher_config.GetInt("NTRLAUNCHER","SCFGUNLOCK",0);
-		language = ntrlauncher_config.GetInt("NTRLAUNCHER", "LANGUAGE", -1);
-		slot1Init = ntrlauncher_config.GetInt("NTRLAUNCHER","RESETSLOT1",0);
-		
+		slot1Init = ntrlauncher_config.GetInt("NTRLAUNCHER","RESETSLOT1",0);		
 		UseAnimatedSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","ANIMATEDSPLASH",0);
 		UseNTRSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","NTRSPLASH",0);		
 		HealthAndSafety_MSG = ntrlauncher_config.GetInt("NTRLAUNCHER","HEALTHSAFETYSPLASH",0);
-				
+		
+		DebugMode = ntrlauncher_config.GetInt("NTRLAUNCHER","DEBUGMODE",0);
+		
+		language = ntrlauncher_config.GetInt("NTRLAUNCHER", "LANGUAGE", -1);
+		
+		
 		if(slot1Init) {
 			fifoSendValue32(FIFO_USER_04, 1);
 			for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
@@ -122,11 +128,6 @@ int main() {
 	// inserted.
 	if(REG_SCFG_MC == 0x10) { fifoSendValue32(FIFO_USER_02, 1); }
 	
-	if( TWLCLK == false )  { 
-		REG_SCFG_CLK = 0x80;
-		swiWaitForVBlank();
-	}
-	
 	fifoSendValue32(FIFO_USER_01, 1);
 	fifoWaitValue32(FIFO_USER_03);
 	
@@ -149,7 +150,7 @@ int main() {
 			}
 			break;
 		} else {
-			runLaunchEngine (EnableSD, language, scfgUnlock, TWLMODE, TWLCLK, TWLVRAM, soundFreq, TWLEXTRAM);
+			runLaunchEngine (EnableSD, language, scfgUnlock, TWLMODE, TWLCLK, TWLVRAM, soundFreq, TWLEXTRAM, DebugMode);
 		}
 	}
 	return 0;

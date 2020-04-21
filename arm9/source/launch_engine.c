@@ -33,24 +33,21 @@
 #define BOOSTVRAM_OFFSET 28
 #define SOUNDFREQ_OFFSET 32
 #define EXTENDRAM_OFFSET 36
+#define DEBUGMODE_OFFSET 40
 
 typedef signed int addr_t;
 typedef unsigned char data_t;
 
-static void writeAddr (data_t *mem, addr_t offset, addr_t value) {
-	((addr_t*)mem)[offset/sizeof(addr_t)] = value;
-}
+static void writeAddr (data_t *mem, addr_t offset, addr_t value) { ((addr_t*)mem)[offset/sizeof(addr_t)] = value; }
 
 void vramcpy (void* dst, const void* src, int len) {
 	u16* dst16 = (u16*)dst;
 	u16* src16 = (u16*)src;
 	
-	for ( ; len > 0; len -= 2) {
-		*dst16++ = *src16++;
-	}
+	for ( ; len > 0; len -= 2) { *dst16++ = *src16++; }
 }	
 
-void runLaunchEngine (bool EnableSD, int language, bool scfgUnlock, bool TWLMODE, bool TWLCLK, bool TWLVRAM, bool soundFreq, bool extendRam) {
+void runLaunchEngine (bool EnableSD, int language, bool scfgUnlock, bool TWLMODE, bool TWLCLK, bool TWLVRAM, bool soundFreq, bool extendRam, bool debugMode) {
 	// nocashMessage("runLaunchEngine");
 
 	irqDisable(IRQ_ALL);
@@ -74,6 +71,7 @@ void runLaunchEngine (bool EnableSD, int language, bool scfgUnlock, bool TWLMODE
 	writeAddr ((data_t*) LCDC_BANK_D, BOOSTVRAM_OFFSET, TWLVRAM);
 	writeAddr ((data_t*) LCDC_BANK_D, SOUNDFREQ_OFFSET, soundFreq);
 	writeAddr ((data_t*) LCDC_BANK_D, EXTENDRAM_OFFSET, extendRam);
+	writeAddr ((data_t*) LCDC_BANK_D, DEBUGMODE_OFFSET, debugMode);
 	
 	// nocashMessage("irqDisable(IRQ_ALL);");
 	irqDisable(IRQ_ALL);

@@ -138,3 +138,4 @@ u32* findMpuInitCacheOffset(const u32* mpuStartOffset) {
 	// dbg_printf("\n");
 	return mpuInitCacheOffset;
 }
+

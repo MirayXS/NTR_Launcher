@@ -20,3 +20,4 @@ inline bool isSdk5(const module_params_t* moduleParams) {
 }
 
 #endif // MODULE_PARAMS_H
+

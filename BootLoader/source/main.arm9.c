@@ -45,13 +45,13 @@
 
 tNDSHeader* ndsHeader = NULL;
 
-bool arm9_runCardEngine = false;
+// bool dsiModeConfirmed = false;
 bool arm9_dsiModeConfirmed = false;
-bool dsiModeConfirmed = false;
 bool arm9_boostVram = false;
 bool arm9_scfgUnlock = false;
 bool arm9_TWLClockSpeeds = false;
 bool arm9_ExtendRam = false;
+bool arm9_DebugMode = false;
 
 volatile int arm9_stateFlag = ARM9_BOOT;
 volatile u32 arm9_errorCode = 0xFFFFFFFF;
@@ -63,37 +63,49 @@ External functions
 --------------------------------------------------------------------------*/
 extern void arm9_clearCache (void);
 
-
 void initMBKARM9() {
 
 	if (arm9_dsiModeConfirmed) {
 		// default dsiware settings
 	
 		// WRAM-B fully mapped to arm7 // inverted order
-		*((vu32*)REG_MBK2)=0x9195999D;
-		*((vu32*)REG_MBK3)=0x8185898D;
+		// *((vu32*)REG_MBK2)=0x9195999D;
+		// *((vu32*)REG_MBK3)=0x8185898D;
 		
 		// WRAM-C fully mapped to arm7 // inverted order
-		*((vu32*)REG_MBK4)=0x9195999D;
-		*((vu32*)REG_MBK5)=0x8185898D;
+		// *((vu32*)REG_MBK4)=0x9195999D;
+		// *((vu32*)REG_MBK5)=0x8185898D;
 			
 		// WRAM-A not mapped (reserved to arm7)
-		REG_MBK6=0x00000000;
+		// REG_MBK6=0x00000000;
 		// WRAM-B mapped to the 0x3740000 - 0x37BFFFF area : 512k // why? only 256k real memory is there
-		REG_MBK7=0x07C03740; // same as dsiware
+		// REG_MBK7=0x07C03740; // same as dsiware
 		// WRAM-C mapped to the 0x3700000 - 0x373FFFF area : 256k
-		REG_MBK8=0x07403700; // same as dsiware
+		// REG_MBK8=0x07403700; // same as dsiware
+		
+		// This gets set on arm7
+		// *((vu32*)REG_MBK1)=0x8D898581;
+		// *((vu32*)REG_MBK2)=0x8C888480;
+		// *((vu32*)REG_MBK3)=0x9C989490;
+		// *((vu32*)REG_MBK4)=0x8C888480;
+		// *((vu32*)REG_MBK5)=0x9C989490;
+	
+		REG_MBK6=0x00000000;
+		REG_MBK7=0x07C03740;
+		REG_MBK8=0x07403700;
+		REG_MBK9=0x0300000F;
 	} else {
 		// MBK settings for NTR mode games
-		*((vu32*)REG_MBK1)=0x8D898581;
-		*((vu32*)REG_MBK2)=0x91898581;
-		*((vu32*)REG_MBK3)=0x91999591;
-		*((vu32*)REG_MBK4)=0x91898581;
-		*((vu32*)REG_MBK5)=0x91999591;
+		// *((vu32*)REG_MBK1)=0x8D898581;
+		// *((vu32*)REG_MBK2)=0x91898581;
+		// *((vu32*)REG_MBK3)=0x91999591;
+		// *((vu32*)REG_MBK4)=0x91898581;
+		// *((vu32*)REG_MBK5)=0x91999591;
 	
 		REG_MBK6=0x00003000;
 		REG_MBK7=0x00003000;
 		REG_MBK8=0x00003000;
+		REG_MBK9=0xFCFFFF0F;
 	}
 }
 
@@ -116,8 +128,7 @@ arm9_errorOutput
 Displays an error code on screen.
 Written by Chishm
 --------------------------------------------------------------------------*/
-/*static void arm9_errorOutput (u32 code, bool clearBG) {
-// Re-enable for debugging
+static void arm9_errorOutput (u32 code, bool clearBG) {
 	int i, j, k;
 	u16 colour;
 	
@@ -127,9 +138,8 @@ Written by Chishm
 	
 	if (clearBG) {
 		// Clear display
-		for (i = 0; i < 256*192; i++) {
-			VRAM_A[i] = 0x0000;
-		}
+		// for (i = 0; i < 256*192; i++) { VRAM_A[i] = 0x0000; }
+		for (i = 0; i < 256*192; i++) { VRAM_A[i] = 0xFFFF; }
 	}
 	
 	// Draw boxes of colour, signifying error codes
@@ -192,7 +202,6 @@ Written by Chishm
 		}
 	}		
 }
-*/
 
 /*-------------------------------------------------------------------------
 arm9_main
@@ -202,13 +211,14 @@ Jumps to the ARM9 NDS binary in sync with the display and ARM7
 Written by Darkain, modified by Chishm
 --------------------------------------------------------------------------*/
 void __attribute__((target("arm"))) arm9_main (void) {
+
+	initMBKARM9();
+
 	register int i;
-	
+		
 	//set shared ram to ARM7
 	WRAM_CR = 0x03;
 	REG_EXMEMCNT = 0xE880;
-
-	initMBKARM9();
 
 	arm9_stateFlag = ARM9_START;
 
@@ -249,8 +259,8 @@ void __attribute__((target("arm"))) arm9_main (void) {
 	VRAM_A_CR = 0x80;
 	VRAM_B_CR = 0x80;
 	VRAM_C_CR = 0x80;
-// Don't mess with the VRAM used for execution
-//	VRAM_D_CR = 0x80;
+	// Don't mess with the VRAM used for execution
+	//	VRAM_D_CR = 0x80;
 	VRAM_E_CR = 0x80;
 	VRAM_F_CR = 0x80;
 	VRAM_G_CR = 0x80;
@@ -283,35 +293,34 @@ void __attribute__((target("arm"))) arm9_main (void) {
 	*(u16*)0x0400006C &= BIT(15);
 	SetBrightness(0, 0);
 	SetBrightness(1, 0);
-	
+		
 	// set ARM9 state to ready and wait for it to change again
 	arm9_stateFlag = ARM9_READY;
-	while ( arm9_stateFlag != ARM9_BOOTBIN ) {
+	while (arm9_stateFlag != ARM9_BOOTBIN) {
 		if (arm9_stateFlag == ARM9_DISPERR) {
 			// Re-enable for debugging
-			// arm9_errorOutput (arm9_errorCode, arm9_errorClearBG);
-			if ( arm9_stateFlag == ARM9_DISPERR) { arm9_stateFlag = ARM9_READY; }
+			if (arm9_DebugMode) { arm9_errorOutput(arm9_errorCode, arm9_errorClearBG); }
+			if (arm9_stateFlag == ARM9_DISPERR) { arm9_stateFlag = ARM9_READY; }
 		}
 		
-		// I don't set SCFG_EXT here anymore. The required changes to make WoodR4 work would crash Bootloader if set here.
 		if (arm9_stateFlag == ARM9_SETSCFG) { arm9_stateFlag = ARM9_READY; }
 	}
 	
 	VoidFn arm9code = (VoidFn)ndsHeader->arm9executeAddress;
-	
-	// wait for vblank then boot
+		
 	while(REG_VCOUNT!=191);
 	while(REG_VCOUNT==191);
 	
-	// arm9_errorOutput (*(u32*)(first), true);
-	
 	if (arm9_dsiModeConfirmed) {
-		REG_SCFG_EXT = 0x8307F100;
-		REG_SCFG_CLK = 0x84;
+		REG_SCFG_EXT = 0x8207F100;
+		REG_SCFG_CLK = 0x0084;
 		if (arm9_TWLClockSpeeds) { REG_SCFG_CLK |= BIT(0); }
+		REG_SCFG_RST = 1;
 	} else {
-		// REG_SCFG_EXT = 0x8300C000;		
-		REG_SCFG_EXT=0x83000000;
+		// REG_SCFG_EXT = 0x8200C000;
+		REG_SCFG_EXT=0x82000000;
+		REG_SCFG_CLK = 0x80;
+		if (arm9_TWLClockSpeeds) { REG_SCFG_CLK |= BIT(0); }
 		
 		if (arm9_ExtendRam) {
 			REG_SCFG_EXT |= BIT(14);
@@ -319,11 +328,11 @@ void __attribute__((target("arm"))) arm9_main (void) {
 		}		
 		// Extended VRAM Access
 		if (arm9_boostVram) {  REG_SCFG_EXT |= BIT(13); }
-		
 		// lock SCFG
 		if (!arm9_scfgUnlock) { REG_SCFG_EXT &= ~(1UL << 31); }
 	}
 	
+	// wait for vblank then boot
 	while(REG_VCOUNT!=191);
 	while(REG_VCOUNT==191);
 	

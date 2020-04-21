@@ -66,11 +66,12 @@ extern u32 twlClock;
 extern u32 boostVram;
 extern u32 soundFreq;
 extern u32 extendRam;
+extern u32 debugMode;
 
 bool useTwlCfg = false;
 int twlCfgLang = 0;
 
-bool gameSoftReset = false;
+// bool gameSoftReset = false;
 
 void arm7_clearmem (void* loc, size_t len);
 extern void ensureBinaryDecompressed(const tNDSHeader* ndsHeader, module_params_t* moduleParams);
@@ -107,8 +108,7 @@ u32* findModuleParamsOffset(const tNDSHeader* ndsHeader) {
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Used for debugging purposes
-/* Disabled for now. Re-enable to debug problems
-static void errorOutput (u32 code) {
+/*static void errorOutput (u32 code) {
 	// Wait until the ARM9 is ready
 	while (arm9_stateFlag != ARM9_READY);
 	// Set the error code, then tell ARM9 to display it
@@ -117,17 +117,17 @@ static void errorOutput (u32 code) {
 	arm9_stateFlag = ARM9_DISPERR;
 	// Stop
 	while(1);
-}
-*/
+}*/
+
 
 static void debugOutput (u32 code) {
 	// Wait until the ARM9 is ready
 	while (arm9_stateFlag != ARM9_READY);
 	// Set the error code, then tell ARM9 to display it
-	arm9_errorCode = code;
-	arm9_errorClearBG = false;
+	arm9_errorCode = code;	
+	arm9_errorClearBG = debugMode;
 	arm9_stateFlag = ARM9_DISPERR;
-	// Wait for completion
+	// Wait for completion	
 	while (arm9_stateFlag != ARM9_READY);
 }
 
@@ -190,6 +190,8 @@ static void my_readUserSettings(tNDSHeader* ndsHeader) {
 	}
 }
 
+void memset_addrs_arm7(u32 start, u32 end) { toncset((u32*)start, 0, ((int)end - (int)start)); }
+
 /*-------------------------------------------------------------------------
 arm7_resetMemory
 Clears all of the NDS's RAM that is visible to the ARM7
@@ -198,7 +200,7 @@ Modified by Chishm:
  * Added STMIA clear mem loop
 --------------------------------------------------------------------------*/
 void arm7_resetMemory (void) {
-	int i;
+	int i, reg;
 
 	REG_IME = 0;
 
@@ -217,6 +219,7 @@ void arm7_resetMemory (void) {
 		DMA_DEST(i) = 0;
 		TIMER_CR(i) = 0;
 		TIMER_DATA(i) = 0;
+		for(reg=0; reg<0x1c; reg+=4)*((u32*)(0x04004104 + ((i*0x1c)+reg))) = 0; //Reset NDMA.
 	}
 
 	// Clear out FIFO
@@ -227,6 +230,9 @@ void arm7_resetMemory (void) {
 	// clear IWRAM - 037F:8000 to 0380:FFFF, total 96KiB
 	toncset ((void*)0x037F8000, 0, 96*1024);
 	// arm7_clearmem ((void*)0x037F8000, 96*1024);
+	
+	memset_addrs_arm7(0x03000000, 0x0380FFC0);
+	memset_addrs_arm7(0x0380FFD0, 0x03800000 + 0x10000);
 	
 	// clear most of EXRAM - except before 0x023F0000, which has the cheat data
 	toncset ((void*)0x02004000, 0, 0x3EC000);
@@ -242,33 +248,100 @@ void arm7_resetMemory (void) {
 
 	REG_IE = 0;
 	REG_IF = ~0;
+	REG_AUXIE = 0;
+	REG_AUXIF = ~0;
 	(*(vu32*)(0x04000000-4)) = 0;  //IRQ_HANDLER ARM7 version
 	(*(vu32*)(0x04000000-8)) = ~0; //VBLANK_INTR_WAIT_FLAGS, ARM7 version
 	REG_POWERCNT = 1;  //turn off power to stuffs
 
-	useTwlCfg = (dsiMode && (*(u8*)0x02000400 & 0x0F) && (*(u8*)0x02000404 == 0));
+	// useTwlCfg = (dsiMode && (*(u8*)0x02000400 & 0x0F) && (*(u8*)0x02000404 == 0));
+	useTwlCfg = (dsiMode && (*(u8*)0x02000400 & 0x0F) && (*(u8*)0x02000401 == 0) && (*(u8*)0x02000402 == 0) && (*(u8*)0x02000404 == 0));
 	twlCfgLang = *(u8*)0x02000406;
 
 	// Load FW header 
 	//arm7_readFirmware((u32)0x000000, (u8*)0x027FF830, 0x20);
+	//readFirmware((u32)0x000000, (u8*)0x027FF830, 0x20);
 }
 
 static void NDSTouchscreenMode(void) {
-	//unsigned char * *(unsigned char*)0x40001C0=		(unsigned char*)0x40001C0;
-	//unsigned char * *(unsigned char*)0x40001C0byte2=(unsigned char*)0x40001C1;
-	//unsigned char * *(unsigned char*)0x40001C2=	(unsigned char*)0x40001C2;
-	//unsigned char * I2C_DATA=	(unsigned char*)0x4004500;
-	//unsigned char * I2C_CNT=	(unsigned char*)0x4004501;
 
+	bool specialSetting = false;
 	u8 volLevel;
 	
-	//if (fifoCheckValue32(FIFO_MAXMOD)) {
-	//	// special setting (when found special gamecode)
-	//	volLevel = 0xAC;
-	// } else {
+	static const char list[][4] = {
+		"ABX",	// NTR-ABXE Bomberman Land Touch!
+		"YO9",	// NTR-YO9J Bokura no TV Game Kentei - Pikotto! Udedameshi
+		"ALH",	// NTR-ALHE Flushed Away
+		"ACC",	// NTR-ACCE Cooking Mama
+		"YCQ",	// NTR-YCQE Cooking Mama 2 - Dinner with Friends
+		"YYK",	// NTR-YYKE Trauma Center - Under the Knife 2
+		"AZW",	// NTR-AZWE WarioWare - Touched!
+		"AKA",	// NTR-AKAE Rub Rabbits!, The
+		"AN9",	// NTR-AN9E Little Mermaid - Ariel's Undersea Adventure, The
+		"AKE",	// NTR-AKEJ Keroro Gunsou - Enshuu da Yo! Zenin Shuugou Part 2
+		"YFS",	// NTR-YFSJ Frogman Show - DS Datte, Shouganaijanai, The
+		"YG8",	// NTR-YG8E Yu-Gi-Oh! World Championship 2008
+		"AY7",	// NTR-AY7E Yu-Gi-Oh! World Championship 2007
+		"YON",	// NTR-YONJ Minna no DS Seminar - Kantan Ongakuryoku
+		"A5H",	// NTR-A5HE Interactive Storybook DS - Series 2
+		"A5I",	// NTR-A5IE Interactive Storybook DS - Series 3
+		"AMH",	// NTR-AMHE Metroid Prime Hunters
+		"A3T",	// NTR-A3TE Tak - The Great Juju Challenge
+		"YBO",	// NTR-YBOE Boogie
+		"ADA",	// NTR-ADAE PKMN Diamond
+		"APA",	// NTR-APAE PKMN Pearl
+		"CPU",	// NTR-CPUE PKMN Platinum
+		"APY",	// NTR-APYE Puyo Pop Fever
+		"AWH",	// NTR-AWHE Bubble Bobble Double Shot
+		"AXB",	// NTR-AXBJ Daigassou! Band Brothers DX
+		"A4U",	// NTR-A4UJ Wi-Fi Taiou - Morita Shogi
+		"A8N",	// NTR-A8NE Planet Puzzle League
+		"ABJ",	// NTR-ABJE Harvest Moon DS - Island of Happiness
+		"ABN",	// NTR-ABNE Bomberman Story DS
+		"ACL",	// NTR-ACLE Custom Robo Arena
+		"ART",	// NTR-ARTJ Shin Lucky Star Moe Drill - Tabidachi
+		"AVT",	// NTR-AVTJ Kou Rate Ura Mahjong Retsuden Mukoubuchi - Goburei, Shuuryou desu ne
+		"AWY",	// NTR-AWYJ Wi-Fi Taiou - Gensen Table Game DS
+		"AXJ",	// NTR-AXJE Dungeon Explorer - Warriors of Ancient Arts
+		"AYK",	// NTR-AYKJ Wi-Fi Taiou - Yakuman DS
+		"YB2",	// NTR-YB2E Bomberman Land Touch! 2
+		"YB3",	// NTR-YB3E Harvest Moon DS - Sunshine Islands
+		"YCH",	// NTR-YCHJ Kousoku Card Battle - Card Hero
+		"YFE",	// NTR-YFEE Fire Emblem - Shadow Dragon
+		"YGD",	// NTR-YGDE Diary Girl
+		"YKR",	// NTR-YKRJ Culdcept DS
+		"YRM",	// NTR-YRME My Secret World by Imagine
+		"YW2",	// NTR-YW2E Advance Wars - Days of Ruin
+		"AJU",	// NTR-AJUJ Jump! Ultimate Stars
+		"ACZ",	// NTR-ACZE Cars
+		"AHD",	// NTR-AHDE Jam Sessions
+		"ANR",	// NTR-ANRE Naruto - Saikyou Ninja Daikesshu 3
+		"YT3",	// NTR-YT3E Tamagotchi Connection - Corner Shop 3
+		"AVI",	// NTR-AVIJ Kodomo no Tame no Yomi Kikase - Ehon de Asobou 1-Kan
+		"AV2",	// NTR-AV2J Kodomo no Tame no Yomi Kikase - Ehon de Asobou 2-Kan
+		"AV3",	// NTR-AV3J Kodomo no Tame no Yomi Kikase - Ehon de Asobou 3-Kan
+		"AV4",	// NTR-AV4J Kodomo no Tame no Yomi Kikase - Ehon de Asobou 4-Kan
+		"AV5",	// NTR-AV5J Kodomo no Tame no Yomi Kikase - Ehon de Asobou 5-Kan
+		"AV6",	// NTR-AV6J Kodomo no Tame no Yomi Kikase - Ehon de Asobou 6-Kan
+		"YNZ",	// NTR-YNZE Petz - Dogz Fashion
+	};
+
+	for (unsigned int i = 0; i < sizeof(list) / sizeof(list[0]); i++) {
+		if (memcmp(ndsHeader->gameCode, list[i], 3) == 0) {
+			// Found a match.
+			specialSetting = true; // Special setting (when found special gamecode)
+			break;
+		}
+	}
+
+	if (specialSetting) {
+		// special setting (when found special gamecode)
+		volLevel = 0xAC;
+	} else {
 		// normal setting (for any other gamecodes)
-	volLevel = 0xA7;
-	// }
+		volLevel = 0xA7;
+	}
+	
 
 	// Touchscreen
 	cdcReadReg (0x63, 0x00);
@@ -466,7 +539,7 @@ static tNDSHeader* loadHeader(tDSiHeader* dsiHeaderTemp) {
 
 	*ndsHeader = dsiHeaderTemp->ndshdr;
 	
-	if (dsiModeConfirmed) {
+	if (twlMode) {
 		tDSiHeader* dsiHeader = (tDSiHeader*)(isSdk5(moduleParams) ? DSI_HEADER_SDK5 : DSI_HEADER); // __DSiHeader
 		*dsiHeader = *dsiHeaderTemp;
 	}
@@ -481,9 +554,6 @@ Written by Darkain, modified by Chishm.
 --------------------------------------------------------------------------*/
 void arm7_startBinary (void) {
 	REG_IME = 0;
-
-	while(REG_VCOUNT!=191);
-	while(REG_VCOUNT==191);
 	
 	// Get the ARM9 to boot
 	arm9_stateFlag = ARM9_BOOTBIN;
@@ -494,46 +564,54 @@ void arm7_startBinary (void) {
 	// Start ARM7
 	VoidFn arm7code = (VoidFn)ndsHeader->arm7executeAddress;
 	
-	if (!dsiModeConfirmed) {
-		REG_SCFG_EXT = 0x92A03000;
-		if (!scfgUnlock) { REG_SCFG_EXT &= ~(1UL << 31); }
-		
-		while(REG_VCOUNT!=191);
-		while(REG_VCOUNT==191);
-	}
-	
 	arm7code();
 }
 
 
 void initMBK() {
 	
-	if (dsiModeConfirmed) {
+	if (twlMode) {
 		// give all DSI WRAM to arm7 at boot
 		// this function have no effect with ARM7 SCFG locked
 	
 		// arm7 is master of WRAM-A, arm9 of WRAM-B & C
-		REG_MBK9=0x3000000F;
+		// REG_MBK9=0x0300000F; // Disabled. This write is redundent. Already set as result of MBK settings in DSi Extended header of NTR_Launcher's SRL
 	
 		// WRAM-A fully mapped to arm7
-		*((vu32*)REG_MBK1)=0x8185898D; // same as dsiware
+		// *((vu32*)REG_MBK1)=0x8185898D; // same as dsiware
 	
 		// WRAM-B fully mapped to arm7 // inverted order
-		*((vu32*)REG_MBK2)=0x9195999D;
-		*((vu32*)REG_MBK3)=0x8185898D;
+		// *((vu32*)REG_MBK2)=0x9195999D;
+		// *((vu32*)REG_MBK3)=0x8185898D;
 	
 		// WRAM-C fully mapped to arm7 // inverted order
-		*((vu32*)REG_MBK4)=0x9195999D;
-		*((vu32*)REG_MBK5)=0x8185898D;
+		// *((vu32*)REG_MBK4)=0x9195999D;
+		// *((vu32*)REG_MBK5)=0x8185898D;
 	
 		// WRAM mapped to the 0x3700000 - 0x37FFFFF area 
 		// WRAM-A mapped to the 0x37C0000 - 0x37FFFFF area : 256k
-		REG_MBK6=0x080037C0; // same as dsiware
+		// REG_MBK6=0x080037C0; // same as dsiware
 		// WRAM-B mapped to the 0x3740000 - 0x37BFFFF area : 512k // why? only 256k real memory is there
-		REG_MBK7=0x07C03740; // same as dsiware
+		// REG_MBK7=0x07C03740; // same as dsiware
 		// WRAM-C mapped to the 0x3700000 - 0x373FFFF area : 256k
-		REG_MBK8=0x07403700; // same as dsiware
+		// REG_MBK8=0x07403700; // same as dsiware
+		
+		*((vu32*)REG_MBK1)=0x8D898581;
+		*((vu32*)REG_MBK2)=0x8C888480;
+		*((vu32*)REG_MBK3)=0x9C989490;
+		*((vu32*)REG_MBK4)=0x8C888480;
+		*((vu32*)REG_MBK5)=0x9C989490;
+	
+		REG_MBK6=0x080037C0;
+		REG_MBK7=0x07C03740;
+		REG_MBK8=0x07403700;		
 	} else {
+		*((vu32*)REG_MBK1)=0x8D898581;
+		*((vu32*)REG_MBK2)=0x8C888480;
+		*((vu32*)REG_MBK3)=0x9C989490;
+		*((vu32*)REG_MBK4)=0x8C888480;
+		*((vu32*)REG_MBK5)=0x9C989490;
+		
 		REG_MBK6=0x09403900;
 		REG_MBK7=0x09803940;
 		REG_MBK8=0x09C03980;
@@ -553,7 +631,9 @@ void initMBK() {
 
 void fixDSBrowser(void) {
 	extern void patchMpu(const tNDSHeader* ndsHeader, const module_params_t* moduleParams);
-	patchMpu(ndsHeader, moduleParams);
+	// patchMpu(ndsHeader, moduleParams);
+	
+	patchMpu((tNDSHeader*)NDS_HEADER, moduleParams);
 
 	toncset((char*)0x02400000, 0xFF, 0xC0);
 	*(u8*)0x024000B2 = 0;
@@ -593,6 +673,7 @@ void fixDSBrowser(void) {
 
 
 static void setMemoryAddress(const tNDSHeader* ndsHeader) {
+
 	if (ROMsupportsDSiMode(ndsHeader)) {
 	//	u8* deviceListAddr = (u8*)((u8*)0x02FFE1D4);
 	//	tonccpy(deviceListAddr, deviceList_bin, deviceList_bin_len);
@@ -632,8 +713,10 @@ static void setMemoryAddress(const tNDSHeader* ndsHeader) {
 // Main function
 
 void arm7_main (void) {
-	
+
 	initMBK();
+	
+	arm9_DebugMode = debugMode;
 	
 	int errorCode;
 	
@@ -647,6 +730,8 @@ void arm7_main (void) {
 
 	debugOutput (ERR_STS_LOAD_BIN);
 	
+	if (!twlMode) { REG_SCFG_ROM = 0x703; }
+	
 	tDSiHeader* dsiHeaderTemp = (tDSiHeader*)0x02FFC000;
 
 	// Load the NDS file
@@ -657,85 +742,90 @@ void arm7_main (void) {
 	if (ROMisDSiEnhanced(&dsiHeaderTemp->ndshdr)) { extendRam = true; } // Required for TWL carts to boot properly. Disabled by default for NTR carts to allow WoodR4 to operate correctly.
 	
 	if (ROMisDSiExclusive(&dsiHeaderTemp->ndshdr)) {
+		twlMode = true;
+		dsiMode = true;
+		// dsiModeConfirmed = true;
 		twlClock = true;
 		extendRam = true;
 		boostVram = true;
-		dsiMode = true;
 	}	
 
-	if (dsiMode) {
+	/*if (dsiMode) {
 		if (twlMode == 2) {
 			dsiModeConfirmed = twlMode;
 		} else {
 			dsiModeConfirmed = twlMode && ROMsupportsDSiMode(&dsiHeaderTemp->ndshdr);
 		}
-	}
+	}*/
 
-	if (dsiModeConfirmed) {
-		if (dsiHeaderTemp->arm9ibinarySize > 0) {
-			cardRead(dsiHeaderTemp->arm9iromOffset, (u32*)dsiHeaderTemp->arm9idestination, dsiHeaderTemp->arm9ibinarySize);
+	if (twlMode) {
+		if (dsiHeaderTemp->arm9ibinarySize > 0) {			
+			cardRead((u32)dsiHeaderTemp->arm9iromOffset, (u32*)dsiHeaderTemp->arm9idestination, dsiHeaderTemp->arm9ibinarySize);
 		}
 		if (dsiHeaderTemp->arm7ibinarySize > 0) {
-			cardRead(dsiHeaderTemp->arm7iromOffset, (u32*)dsiHeaderTemp->arm7idestination, dsiHeaderTemp->arm7ibinarySize);
+			cardRead((u32)dsiHeaderTemp->arm7iromOffset, (u32*)dsiHeaderTemp->arm7idestination, dsiHeaderTemp->arm7ibinarySize);
 		}
-	} else {
-		REG_SCFG_ROM = 0x703;
 	}
 
 	ndsHeader = loadHeader(dsiHeaderTemp);
 
+	// if (*(u32*)(NDS_HEADER+0xC) == 0x50524255) { fixDSBrowser(); }
+	bool isDSBrowser = (memcmp(ndsHeader->gameCode, "UBRP", 4) == 0);
+	
+	bool arm9_extendedMemory = (twlMode || isDSBrowser);
+	
+	if (isDSBrowser) { arm9_ExtendRam = true; }
+	
+	if (!arm9_extendedMemory) { tonccpy((u32*)0x023FF000, (u32*)(isSdk5(moduleParams) ? 0x02FFF000 : 0x027FF000), 0x1000); }
+	
 	my_readUserSettings(ndsHeader); // Header has to be loaded first
 
-	if (dsiMode && !dsiModeConfirmed) {
+	if (!twlMode) {
 		NDSTouchscreenMode();
 		*(u16*)0x4000500 = 0x807F;
-
-		if (twlClock) {
-			// REG_SCFG_CLK = 0x0181;
-			REG_SCFG_CLK = 0x0187;
-		} else {
-			REG_SCFG_CLK = 0x0180;
-		}
-		if (!sdAccess) { REG_SCFG_EXT = 0x93FBFB06; }
 	}
-
-	if (*(u32*)(NDS_HEADER+0xC) == 0x50524255) { fixDSBrowser(); }
-
-	if ((*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x52544E	// Download Play ROMs
+	
+	if (isDSBrowser) { fixDSBrowser(); }
+	/*if ((*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x52544E	// Download Play ROMs
 	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x4D5341		// Super Mario 64 DS
 	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x434D41		// Mario Kart DS
 	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x443241		// New Super Mario Bros.
 	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x5A5241		// Rockman ZX/MegaMan ZX
 	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x574B41		// Kirby Squeak Squad/Mouse Attack
 	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x585A59		// Rockman ZX Advent/MegaMan ZX Advent
-	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x5A3642)	// Rockman Zero Collection/MegaMan Zero Collection
+	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x5A3642)		// Rockman Zero Collection/MegaMan Zero Collection
 	{
 		gameSoftReset = true;
-	}
+	}*/
 	
 	toncset ((void*)0x023F0000, 0, 0x8000);		// Clear cheat data from main memory
-
+	
 	debugOutput (ERR_STS_START);
 	
+	arm9_dsiModeConfirmed = twlMode;
 	arm9_TWLClockSpeeds = twlClock;
 	arm9_boostVram = boostVram;
-	arm9_scfgUnlock = scfgUnlock;
-	arm9_dsiModeConfirmed = dsiModeConfirmed;
-	arm9_ExtendRam = extendRam;
-	//arm9_isSdk5 = isSdk5(moduleParams);
+	arm9_scfgUnlock = scfgUnlock;	
+	arm9_ExtendRam = extendRam;	
 	
-	
-	if (dsiModeConfirmed) { 
-		REG_SCFG_EXT = 0x93FBFB06;
-		if (!scfgUnlock) { REG_SCFG_EXT &= ~(1UL << 31); }
+	if (twlClock) {
+		if (!sdAccess) { REG_SCFG_CLK = 0x0186; } else { REG_SCFG_CLK = 0x0187; }
+	} else {
+		if (!sdAccess) { REG_SCFG_CLK = 0x0180; } else { REG_SCFG_CLK = 0x0181; }
 	}
-
+	
+	if (twlMode) {  REG_SCFG_EXT = 0x92FBFB06; } else { REG_SCFG_EXT = 0x92A00000; }
+	
+	if (sdAccess) { REG_SCFG_EXT |= BIT(18); }
+	
+	if (!scfgUnlock) { REG_SCFG_EXT &= ~(1UL << 31); }
+	
 	while (arm9_stateFlag != ARM9_READY);
 	arm9_stateFlag = ARM9_SETSCFG;
 	while (arm9_stateFlag != ARM9_READY);
-
+		
 	setMemoryAddress(ndsHeader);
-
+	
 	arm7_startBinary();
 
 	while (1);
