@@ -53,7 +53,7 @@ ifneq ($(BUILD),$(notdir $(CURDIR)))
 #---------------------------------------------------------------------------------
  
 export ARM7BIN	:=	$(TOPDIR)/$(TARGET).arm7
-export ARM7ELF	:=	$(CURDIR)/$(TARGET).arm7.elf
+export ARM7ELF	:=	$(CURDIR)/$(TARGET).elf
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir))

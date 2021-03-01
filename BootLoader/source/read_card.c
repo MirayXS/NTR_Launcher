@@ -74,10 +74,10 @@ static void initKey1Encryption (u8* cmdData, int iCardDevice) {
 	key1data.mmm = getRandomNumber() & 0x00000fff;
 	key1data.nnn = getRandomNumber() & 0x00000fff;
 
-    if(iCardDevice) {
-		cmdData[7]=0x3D; //DSi // CARD_CMD_ACTIVATE_BF2
+    if(iCardDevice) { //DSi
+      cmdData[7]=0x3D;	// CARD_CMD_ACTIVATE_BF2
     } else {
-		cmdData[7]=CARD_CMD_ACTIVATE_BF;
+      cmdData[7]=CARD_CMD_ACTIVATE_BF;
 	}
 	
 	cmdData[6] = (u8) (key1data.iii >> 4);
@@ -156,7 +156,9 @@ static void switchToTwlBlowfish(sNDSHeaderExt* ndsHeader) {
 	}
 
 	// Dummy command sent after card reset
-	cardParamCommand (CARD_CMD_DUMMY, 0, CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(1) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F), NULL, 0);
+	cardParamCommand (CARD_CMD_DUMMY, 0,
+		CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(1) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F),
+		NULL, 0);
 
 	//int iCardDevice = 1;
 
@@ -167,7 +169,8 @@ static void switchToTwlBlowfish(sNDSHeaderExt* ndsHeader) {
 	// Port 40001A4h setting for normal reads (command B7)
 	portFlags = ndsHeader->cardControl13 & ~CARD_BLK_SIZE(7);
 	// Port 40001A4h setting for KEY1 commands   (usually 001808F8h)
-	portFlagsKey1 = CARD_ACTIVATE | CARD_nRESET | (ndsHeader->cardControl13 & (CARD_WR|CARD_CLK_SLOW)) | ((ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF))) + ((ndsHeader->cardControlBF & CARD_DELAY2(0x3F)) >> 16));
+	portFlagsKey1 = CARD_ACTIVATE | CARD_nRESET | (ndsHeader->cardControl13 & (CARD_WR|CARD_CLK_SLOW)) |
+		((ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF))) + ((ndsHeader->cardControlBF & CARD_DELAY2(0x3F)) >> 16));
 
 	// Adjust card transfer method depending on the most significant bit of the chip ID
 	if (!normalChip) { portFlagsKey1 |= CARD_SEC_LARGE; }
@@ -206,10 +209,11 @@ static void switchToTwlBlowfish(sNDSHeaderExt* ndsHeader) {
 	cardPolledTransfer(portFlagsKey1 | CARD_BLK_SIZE(7), NULL, 0, cmdData);
 
 	// 2bbbbiii jjjkkkkk - Get Secure Area Block
-	portFlagsSecRead = (ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF)|CARD_DELAY2(0x3F))) | CARD_ACTIVATE | CARD_nRESET | CARD_SEC_EN | CARD_SEC_DAT;
+	portFlagsSecRead = (ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF)|CARD_DELAY2(0x3F)))
+		| CARD_ACTIVATE | CARD_nRESET | CARD_SEC_EN | CARD_SEC_DAT;
 
     int secureAreaOffset = 0;
-	for (secureBlockNumber = 4; secureBlockNumber < 8; secureBlockNumber++) { 
+	for (secureBlockNumber = 4; secureBlockNumber < 8; secureBlockNumber++) {
 		createEncryptedCommand (CARD_CMD_SECURE_READ, cmdData, secureBlockNumber);
 
 		if (normalChip) {
@@ -235,10 +239,11 @@ static void switchToTwlBlowfish(sNDSHeaderExt* ndsHeader) {
 	cardPolledTransfer(portFlagsKey1, NULL, 0, cmdData);
 
 	// The 0x800 bytes are modcrypted, so this function isn't ran
-	// decryptSecureArea (gameCode->key, secureArea, 1);
+	//decryptSecureArea (gameCode->key, secureArea, 1);
 
 	twlBlowfish = true;
 }
+
 
 int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 	u32 portFlagsKey1, portFlagsSecRead;
@@ -249,17 +254,25 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 	GameCode* gameCode;
 
 	// Dummy command sent after card reset
-	cardParamCommand (CARD_CMD_DUMMY, 0, CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(1) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F), NULL, 0);
+	cardParamCommand (CARD_CMD_DUMMY, 0,
+		CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(1) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F),
+		NULL, 0);
 
 	// Read the header
-	cardParamCommand (CARD_CMD_HEADER_READ, 0, CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(1) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F), (void*)headerData, 0x200/sizeof(u32));
+	cardParamCommand (CARD_CMD_HEADER_READ, 0,
+		CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(1) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F),
+		(void*)headerData, 0x200/sizeof(u32));
 
 	tonccpy(ndsHeader, headerData, 0x200);
 
 	if ((ndsHeader->unitCode != 0) || (ndsHeader->dsi_flags != 0)) {
 		// Extended header found
-		cardParamCommand (CARD_CMD_HEADER_READ, 0, CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(4) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F), (void*)headerData, 0x1000/sizeof(u32));
-		if (ndsHeader->dsi1[0]==0xFFFFFFFF && ndsHeader->dsi1[1]==0xFFFFFFFF && ndsHeader->dsi1[2]==0xFFFFFFFF && ndsHeader->dsi1[3]==0xFFFFFFFF) {
+		cardParamCommand (CARD_CMD_HEADER_READ, 0,
+			CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(4) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F),
+			(void*)headerData, 0x1000/sizeof(u32));
+		if (ndsHeader->dsi1[0]==0xFFFFFFFF && ndsHeader->dsi1[1]==0xFFFFFFFF
+		 && ndsHeader->dsi1[2]==0xFFFFFFFF && ndsHeader->dsi1[3]==0xFFFFFFFF)
+		{
 			toncset((u8*)headerData+0x200, 0, 0xE00);	// Clear out FFs
 		}
 		tonccpy(ndsHeader, headerData, 0x1000);
@@ -282,14 +295,16 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 	// Port 40001A4h setting for normal reads (command B7)
 	portFlags = ndsHeader->cardControl13 & ~CARD_BLK_SIZE(7);
 	// Port 40001A4h setting for KEY1 commands   (usually 001808F8h)
-	portFlagsKey1 = CARD_ACTIVATE | CARD_nRESET | (ndsHeader->cardControl13 & (CARD_WR|CARD_CLK_SLOW)) | ((ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF))) + ((ndsHeader->cardControlBF & CARD_DELAY2(0x3F)) >> 16));
+	portFlagsKey1 = CARD_ACTIVATE | CARD_nRESET | (ndsHeader->cardControl13 & (CARD_WR|CARD_CLK_SLOW)) |
+		((ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF))) + ((ndsHeader->cardControlBF & CARD_DELAY2(0x3F)) >> 16));
 
 	// 1st Get ROM Chip ID
-	cardParamCommand (CARD_CMD_HEADER_CHIPID, 0, (ndsHeader->cardControl13 & (CARD_WR|CARD_nRESET|CARD_CLK_SLOW)) | CARD_ACTIVATE | CARD_BLK_SIZE(7), chipID, sizeof(u32));
+	cardParamCommand (CARD_CMD_HEADER_CHIPID, 0,
+		(ndsHeader->cardControl13 & (CARD_WR|CARD_nRESET|CARD_CLK_SLOW)) | CARD_ACTIVATE | CARD_BLK_SIZE(7),
+		chipID, sizeof(u32));
 
 	// Adjust card transfer method depending on the most significant bit of the chip ID
 	normalChip = ((*chipID) & 0x80000000) != 0;		// ROM chip ID MSB
-	
 	if (!normalChip) { portFlagsKey1 |= CARD_SEC_LARGE; }
 
 	// 3Ciiijjj xkkkkkxx - Activate KEY1 Encryption Mode
@@ -323,13 +338,13 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 		cardPolledTransfer(portFlagsKey1, NULL, 0, cmdData);
 		cardDelay(ndsHeader->readTimeout);
 	}
-	
 	cardPolledTransfer(portFlagsKey1 | CARD_BLK_SIZE(7), NULL, 0, cmdData);
 
 	// 2bbbbiii jjjkkkkk - Get Secure Area Block
-	portFlagsSecRead = (ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF)|CARD_DELAY2(0x3F))) | CARD_ACTIVATE | CARD_nRESET | CARD_SEC_EN | CARD_SEC_DAT;
+	portFlagsSecRead = (ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF)|CARD_DELAY2(0x3F)))
+		| CARD_ACTIVATE | CARD_nRESET | CARD_SEC_EN | CARD_SEC_DAT;
 
-    int secureAreaOffset = 0;
+    u32* secureAreaOffset = secureArea;
 	for (secureBlockNumber = 4; secureBlockNumber < 8; secureBlockNumber++) {
 		createEncryptedCommand (CARD_CMD_SECURE_READ, cmdData, secureBlockNumber);
 
@@ -337,11 +352,11 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 			cardPolledTransfer(portFlagsSecRead, NULL, 0, cmdData);
 			cardDelay(ndsHeader->readTimeout);
 			for (i = 8; i > 0; i--) {
-				cardPolledTransfer(portFlagsSecRead | CARD_BLK_SIZE(1), secureArea + secureAreaOffset, 0x200, cmdData);
+				cardPolledTransfer(portFlagsSecRead | CARD_BLK_SIZE(1), secureAreaOffset, 0x200, cmdData);
 				secureAreaOffset += 0x200/sizeof(u32);
 			}
 		} else {
-			cardPolledTransfer(portFlagsSecRead | CARD_BLK_SIZE(4) | CARD_SEC_LARGE, secureArea + secureAreaOffset, 0x1000, cmdData);
+			cardPolledTransfer(portFlagsSecRead | CARD_BLK_SIZE(4) | CARD_SEC_LARGE, secureAreaOffset, 0x1000, cmdData);
 			secureAreaOffset += 0x1000/sizeof(u32);
 		}
 	}
@@ -355,10 +370,11 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
     }
 	cardPolledTransfer(portFlagsKey1, NULL, 0, cmdData);
 
-    // CycloDS doesn't like the dsi secure area being decrypted
-    if((ndsHeader->arm9romOffset != 0x4000) || secureArea[0] || secureArea[1]) { decryptSecureArea (gameCode->key, secureArea, 0); }
-	// decryptSecureArea (gameCode->key, secureArea, 0);
-	
+    //CycloDS doesn't like the dsi secure area being decrypted
+    if((ndsHeader->arm9romOffset != 0x4000) || secureArea[0] || secureArea[1]) {
+		decryptSecureArea (gameCode->key, secureArea, 0);
+	}
+
 	if (secureArea[0] == 0x72636e65 /*'encr'*/ && secureArea[1] == 0x6a624f79 /*'yObj'*/) {
 		// Secure area exists, so just clear the tag
 		secureArea[0] = 0xe7ffdeff;
@@ -368,19 +384,17 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 		for (i = 0; i < 0x200; i ++) { secureArea[i] = 0xe7ffdeff; }
 		// Disabled error checks on secure area. This was able to boot a DS-Xtreme. May increase flashcart compatiblity drastically.
 		// return normalChip ? ERR_SEC_NORM : ERR_SEC_OTHR;
-		// return normalChip ? ERR_NONE : ERR_NONE;
 	}
 
 	return ERR_NONE;
 }
 
 void cardRead (u32 src, u32* dest, size_t size) {
-
 	sNDSHeaderExt* ndsHeader = (sNDSHeaderExt*)headerData;
 
 	size_t readSize;
 
-	if (src > ndsHeader->romSize) { switchToTwlBlowfish(ndsHeader);	}
+	if (src > ndsHeader->romSize) { switchToTwlBlowfish(ndsHeader); }
 
 	if (src < CARD_SECURE_AREA_OFFSET) {
 		return;
@@ -402,7 +416,9 @@ void cardRead (u32 src, u32* dest, size_t size) {
 
 	while (size > 0) {
 		readSize = size < CARD_DATA_BLOCK_SIZE ? size : CARD_DATA_BLOCK_SIZE;
-		cardParamCommand (CARD_CMD_DATA_READ, src, portFlags | CARD_ACTIVATE | CARD_nRESET | CARD_BLK_SIZE(1), dest, readSize);		
+		cardParamCommand (CARD_CMD_DATA_READ, src,
+			portFlags | CARD_ACTIVATE | CARD_nRESET | CARD_BLK_SIZE(1),
+			dest, readSize);
 		src += readSize;
 		dest += readSize/sizeof(*dest);
 		size -= readSize;

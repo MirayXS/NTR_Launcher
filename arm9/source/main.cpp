@@ -30,7 +30,7 @@
 #include "bootsplash2.h"
 #include "launch_engine.h"
 #include "crc.h"
-#include "version.h" 
+// #include "version.h" 
 
 sNDSHeader ndsHeader;
 
@@ -60,6 +60,7 @@ int main() {
 	bool soundFreq = false;
 	bool EnableSD = false;
 	bool slot1Init = false;	
+	bool LegacyMode = false;
 	
 	bool UseAnimatedSplash = false;
 	bool UseNTRSplash = true;
@@ -68,9 +69,7 @@ int main() {
 	int language = -1;
 	
 	bool DebugMode = false;
-	
-	u32 ndsHeader[0x80];
-
+		
 	if (fatInitDefault()) {
 		CIniFile ntrlauncher_config( "sd:/NDS/NTR_Launcher.ini" );
 		
@@ -87,6 +86,8 @@ int main() {
 		HealthAndSafety_MSG = ntrlauncher_config.GetInt("NTRLAUNCHER","HEALTHSAFETYSPLASH",0);
 		
 		DebugMode = ntrlauncher_config.GetInt("NTRLAUNCHER","DEBUGMODE",0);
+		
+		LegacyMode = ntrlauncher_config.GetInt("NTRLAUNCHER", "LEGACYMODE", 0);
 		
 		language = ntrlauncher_config.GetInt("NTRLAUNCHER", "LANGUAGE", -1);
 		
@@ -129,6 +130,9 @@ int main() {
 	if(REG_SCFG_MC == 0x10) { fifoSendValue32(FIFO_USER_02, 1); }
 	
 	fifoSendValue32(FIFO_USER_01, 1);
+	
+	if (LegacyMode && !TWLCLK) { fifoSendValue32(FIFO_USER_05, 1); }
+	
 	fifoWaitValue32(FIFO_USER_03);
 	
 	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
@@ -136,6 +140,21 @@ int main() {
 	sysSetCardOwner (BUS_OWNER_ARM9);
 	
 	cardReadHeader((uint8*)&ndsHeader);
+	
+	// Force disable Legacy Mode if a TWL cart is detected. Old cart loader doesn't support TWL carts.
+	if ((ndsHeader.unitCode == 0x03) | (ndsHeader.unitCode == 0x02)) { 
+		LegacyMode = false; 
+		if (ndsHeader.unitCode == 0x03) {
+			scfgUnlock = true;
+			TWLMODE = true;
+			TWLEXTRAM = true;
+			TWLCLK = true;	// false == NTR, true == TWL
+			TWLVRAM = true;
+			soundFreq = true;
+		} else {
+			TWLCLK = true;
+		}
+	}
 	
 	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
 
@@ -150,7 +169,7 @@ int main() {
 			}
 			break;
 		} else {
-			runLaunchEngine (EnableSD, language, scfgUnlock, TWLMODE, TWLCLK, TWLVRAM, soundFreq, TWLEXTRAM, DebugMode);
+			runLaunchEngine (LegacyMode, EnableSD, language, scfgUnlock, TWLMODE, TWLCLK, TWLVRAM, soundFreq, TWLEXTRAM, DebugMode);
 		}
 	}
 	return 0;

@@ -83,6 +83,8 @@ int main(void) {
 		if(fifoCheckValue32(FIFO_USER_04)) { TWL_ResetSlot1(); } else { PowerOnSlot(); }
 	}	
 	
+	if (fifoCheckValue32(FIFO_USER_05)) { REG_SCFG_CLK = 0x0180; }
+	
 	fifoSendValue32(FIFO_USER_03, 1);
 	
 	while (1) { swiWaitForVBlank(); }
