@@ -26,7 +26,7 @@
 #define resetCpu() \
 		__asm volatile("swi 0x000000")
 
-enum {	ERR_NONE=0x00, ERR_STS_CLR_MEM=0x01, ERR_STS_LOAD_BIN=0x02, ERR_STS_HOOK_BIN=0x03, ERR_STS_START=0x04,
+typedef enum {	ERR_NONE=0x00, ERR_STS_CLR_MEM=0x01, ERR_STS_LOAD_BIN=0x02, ERR_STS_HOOK_BIN=0x03, ERR_STS_START=0x04,
 		// initCard error codes:
 		ERR_LOAD_NORM=0x11, ERR_LOAD_OTHR=0x12, ERR_SEC_NORM=0x13, ERR_SEC_OTHR=0x14, ERR_LOGO_CRC=0x15, ERR_HEAD_CRC=0x16,
 		// hookARM7Binary error codes:
@@ -34,7 +34,7 @@ enum {	ERR_NONE=0x00, ERR_STS_CLR_MEM=0x01, ERR_STS_LOAD_BIN=0x02, ERR_STS_HOOK_
 	} ERROR_CODES;
 
 // Values fixed so they can be shared with ASM code
-enum {
+typedef enum {
 	ARM9_BOOT = 0,
 	ARM9_START = 1,
 	ARM9_RESET = 2,
@@ -42,7 +42,7 @@ enum {
 	ARM9_MEMCLR = 4
 	} ARM9_STATE;
 
-enum {
+typedef enum {
 	ARM7_BOOT = 0,
 	ARM7_START = 1,
 	ARM7_RESET = 2,

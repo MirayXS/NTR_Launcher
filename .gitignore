@@ -1,6 +1,7 @@
 *.exe
 *.cia
 *.nds
+*.app
 *.o
 *.arm7
 Thumbs.db
@@ -16,3 +17,4 @@ BootLoader/build
 BootLoader/load.bin
 arm9/source/version.h
 desktop.ini
+data
