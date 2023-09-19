@@ -75,10 +75,7 @@ void runLaunchEngine (bool altBootloader, bool EnableSD, int language, bool scfg
 		writeAddr ((data_t*) LCDC_BANK_D, SOUNDFREQ_OFFSET, soundFreq);
 		writeAddr ((data_t*) LCDC_BANK_D, EXTENDRAM_OFFSET, extendRam);
 		writeAddr ((data_t*) LCDC_BANK_D, DEBUGMODE_OFFSET, debugMode);
-		
-		// nocashMessage("irqDisable(IRQ_ALL);");
-		// irqDisable(IRQ_ALL);
-		
+
 		// Give the VRAM to the ARM7
 		// nocashMessage("Give the VRAM to the ARM7");
 		VRAM_D_CR = VRAM_ENABLE | VRAM_D_ARM7_0x06020000;
@@ -96,6 +93,18 @@ void runLaunchEngine (bool altBootloader, bool EnableSD, int language, bool scfg
 	
 		// Load the loader/patcher into the correct address
 		vramcpy (LCDC_BANK_C, loadAlt_bin, loadAlt_bin_size);
+	
+		// Set the parameters for the loader
+		writeAddr ((data_t*) LCDC_BANK_C, DSIMODE_OFFSET, isDSiMode());
+		writeAddr ((data_t*) LCDC_BANK_C, LANGUAGE_OFFSET, language);
+		writeAddr ((data_t*) LCDC_BANK_C, SDACCESS_OFFSET, EnableSD);
+		writeAddr ((data_t*) LCDC_BANK_C, SCFGUNLOCK_OFFSET, scfgUnlock);
+		writeAddr ((data_t*) LCDC_BANK_C, TWLMODE_OFFSET, TWLMODE);
+		writeAddr ((data_t*) LCDC_BANK_C, TWLCLOCK_OFFSET, TWLCLK);
+		writeAddr ((data_t*) LCDC_BANK_C, BOOSTVRAM_OFFSET, TWLVRAM);
+		writeAddr ((data_t*) LCDC_BANK_C, SOUNDFREQ_OFFSET, soundFreq);
+		writeAddr ((data_t*) LCDC_BANK_C, EXTENDRAM_OFFSET, extendRam);
+		writeAddr ((data_t*) LCDC_BANK_C, DEBUGMODE_OFFSET, debugMode);
 	
 		// Give the VRAM to the ARM7
 		VRAM_C_CR = VRAM_ENABLE | VRAM_C_ARM7_0x06000000;
@@ -115,16 +124,16 @@ void runLaunchEngine (bool altBootloader, bool EnableSD, int language, bool scfg
 		REG_MBK8=0x00003000;
 
 		if(TWLCLK) {
-			REG_SCFG_CLK=0x0084;
-			REG_SCFG_CLK |= BIT(0);
-			REG_SCFG_EXT=0x03002000;
+			// REG_SCFG_CLK=0x0080;
+			// REG_SCFG_CLK |= BIT(0);
+			REG_SCFG_CLK=0x81;
+			REG_SCFG_EXT=0x83002000;
 		} else {
 			REG_SCFG_CLK=0x80;
-			REG_SCFG_EXT=0x03000000;
+			REG_SCFG_EXT=0x83000000;
 		}
 		
-		// nocashMessage("irqDisable(IRQ_ALL);");
-		// irqDisable(IRQ_ALL);
+		if (!scfgUnlock) REG_SCFG_EXT &= ~(1UL << 31);
 		
 		// Give the VRAM to the ARM7
 		// nocashMessage("Give the VRAM to the ARM7");

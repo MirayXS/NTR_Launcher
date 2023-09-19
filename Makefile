@@ -13,7 +13,7 @@ export TARGET		:=	NTR_Launcher
 export TOPDIR		:=	$(CURDIR)
 
 export VERSION_MAJOR	:= 2
-export VERSION_MINOR	:= 5
+export VERSION_MINOR	:= 6
 export VERSTRING	:=	$(VERSION_MAJOR).$(VERSION_MINOR)
 
 .PHONY: bootloader bootloaderAlt clean arm7/$(TARGET).elf arm9/$(TARGET).elf
@@ -25,7 +25,6 @@ all: bootloader bootloaderAlt $(TARGET).nds
 
 dist:	all
 	@mkdir -p debug
-	@cp $(TARGET).nds 00000000.app
 	@cp $(TARGET).arm7.elf debug/$(TARGET).arm7.elf
 	@cp $(TARGET).arm9.elf debug/$(TARGET).arm9.elf
 
@@ -33,6 +32,7 @@ $(TARGET).nds:	$(TARGET).arm7 $(TARGET).arm9
 	ndstool	-c $(TARGET).nds -7 $(TARGET).arm7.elf -9 $(TARGET).arm9.elf \
 			-b $(CURDIR)/icon.bmp "NTR Launcher;Slot-1 Launcher;Apache Thunder & RocketRobz" \
 			-g KKGP 01 "NTR Launcher" -z 80040000 -u 00030004 -a 00000038 -p 0001
+	@cp $(TARGET).nds 00000000.app
 
 $(TARGET).arm7	: arm7/$(TARGET).elf
 	cp arm7/$(TARGET).elf $(TARGET).arm7.elf

@@ -26,6 +26,8 @@
 #define resetCpu() \
 		__asm volatile("swi 0x000000")
 
+extern bool arm9_DebugMode;
+
 typedef enum {	ERR_NONE=0x00, ERR_STS_CLR_MEM=0x01, ERR_STS_LOAD_BIN=0x02, ERR_STS_HOOK_BIN=0x03, ERR_STS_START=0x04,
 		// initCard error codes:
 		ERR_LOAD_NORM=0x11, ERR_LOAD_OTHR=0x12, ERR_SEC_NORM=0x13, ERR_SEC_OTHR=0x14, ERR_LOGO_CRC=0x15, ERR_HEAD_CRC=0x16,

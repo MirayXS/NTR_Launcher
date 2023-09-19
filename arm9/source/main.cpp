@@ -30,9 +30,14 @@
 #include "bootsplash2.h"
 #include "launch_engine.h"
 #include "crc.h"
-// #include "version.h" 
+#include "tonccpy.h"
+#include "read_card.h"
 
-sNDSHeader ndsHeader;
+sNDSHeaderExt ndsHeader;
+char gameTitle[13] = {0};
+char gameCode[7] = {0};
+
+const char* PROGVERSION = "2.6";
 
 off_t getFileSize(const char *fileName) {
     FILE* fp = fopen(fileName, "rb");
@@ -43,12 +48,67 @@ off_t getFileSize(const char *fileName) {
 		fseek(fp, 0, SEEK_SET);
 	}
 	fclose(fp);
-
 	return fsize;
 }
 
-int main() {
+void DisplayText(const char* text, bool clear = false, bool clearOnly = false){
+	if (clear | clearOnly) {
+		consoleClear();
+		printf("--------------------------------\n");
+		printf("----[NTR Launcher Debug Mode]---\n");
+		printf("----------[Version: 2.6]--------\n");
+		printf("--------------------------------\n\n");
+		if (clearOnly) return;
+	}
+	printf(text);
+}
 
+void DoWait(int waitTime = 30){
+	for (int i = 0; i < waitTime; i++) swiWaitForVBlank();
+};
+
+void DoCardInit(bool DebugMode) {
+	if (DebugMode){ 
+		DisplayText("CLEARONLY", true);
+		DisplayText("Loading Cart details.\nPlease Wait...\n", true);
+	}
+	// Do cart init stuff to wake cart up. DLDI init may fail otherwise!
+	cardInit(&ndsHeader);
+	tonccpy(gameTitle, ndsHeader.gameTitle, 12);
+	tonccpy(gameCode, ndsHeader.gameCode, 6);
+	DoWait(60);
+	if (DebugMode) {
+		DisplayText("CLEARONLY", true, true);
+		iprintf("Detected Cart Name: %12s \n", gameTitle);
+		iprintf("Detected Cart Game ID: %6s \n\n", gameCode);
+		DisplayText("Press any button to continue...");
+		do { swiWaitForVBlank(); scanKeys(); } while (!keysDown());
+	}
+}
+
+void ResetSlot1() {
+	if (REG_SCFG_MC == 0x11) return;
+	disableSlot1();
+	DoWait();
+	enableSlot1();
+}
+
+void DoSlotCheck(bool DebugMode) {
+	if (REG_SCFG_MC == 0x11) {
+		if (DebugMode) DisplayText("Please insert a cartridge...\n", true);
+		REDO:
+		swiWaitForVBlank();
+		do { 
+			if (!DebugMode) CartridgePrompt();
+		} while (REG_SCFG_MC != 0x10);
+		enableSlot1();
+		DoWait(60);
+		if (REG_SCFG_MC != 0x18) goto REDO;
+		// fifoSendValue32(FIFO_USER_02, 1);
+	}
+}
+
+int main() {
 	defaultExceptionHandler();
 	
 	// bool consoleInited = false;
@@ -59,7 +119,7 @@ int main() {
 	bool TWLVRAM = false;
 	bool soundFreq = false;
 	bool EnableSD = false;
-	bool slot1Init = false;	
+	// bool slot1Init = false;
 	bool LegacyMode = false;
 	
 	bool UseAnimatedSplash = false;
@@ -76,96 +136,95 @@ int main() {
 		TWLCLK = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLCLOCK",0);
 		TWLVRAM = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLVRAM",0);
 		TWLEXTRAM = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLEXTRAM",0);
-		TWLMODE = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLMODE",0);		
+		TWLMODE = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLMODE",0);
 		soundFreq = ntrlauncher_config.GetInt("NTRLAUNCHER","SOUNDFREQ",0);
 		// EnableSD = ntrlauncher_config.GetInt("NTRLAUNCHER","SDACCESS",0);
+		EnableSD = true;
 		scfgUnlock = ntrlauncher_config.GetInt("NTRLAUNCHER","SCFGUNLOCK",0);
-		slot1Init = ntrlauncher_config.GetInt("NTRLAUNCHER","RESETSLOT1",0);		
+		// cardInit() does a slot reset anyways so this feature will be deprecated.
+		// slot1Init = ntrlauncher_config.GetInt("NTRLAUNCHER","RESETSLOT1",0);
 		UseAnimatedSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","ANIMATEDSPLASH",0);
-		UseNTRSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","NTRSPLASH",0);		
+		UseNTRSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","NTRSPLASH",0);
 		HealthAndSafety_MSG = ntrlauncher_config.GetInt("NTRLAUNCHER","HEALTHSAFETYSPLASH",0);
 		
 		DebugMode = ntrlauncher_config.GetInt("NTRLAUNCHER","DEBUGMODE",0);
-		
 		LegacyMode = ntrlauncher_config.GetInt("NTRLAUNCHER", "LEGACYMODE", 0);
-		
 		language = ntrlauncher_config.GetInt("NTRLAUNCHER", "LANGUAGE", -1);
 		
-		
-		if(slot1Init) {
-			fifoSendValue32(FIFO_USER_04, 1);
-			for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
-		}
-	} else {		
-		fifoSendValue32(FIFO_USER_04, 1);
-	}
+		/*if(slot1Init) {
+			ResetSlot1();
+		}*/
+	}/* else {
+		ResetSlot1();
+	}*/
+	
+	if (DebugMode) UseAnimatedSplash = false;
 	
 	if (!UseAnimatedSplash) { 
-		BootSplashInit(); 
-		if (REG_SCFG_MC == 0x11) {
-			do { CartridgePrompt(); }
-			while (REG_SCFG_MC == 0x11);
-			fifoSendValue32(FIFO_USER_02, 1);
-			for (int i = 0; i < 25; i++) { swiWaitForVBlank(); }
-		}
+		BootSplashInit(DebugMode);
+		DoSlotCheck(DebugMode);
 	} else {
-		char *p = (char*)PersonalData->name;
-		for (int i = 0; i < 10; i++) {
-			if (p[i*2] == 0x00) {
-				p[i*2/2] = 0;
-			} else {
-				p[i*2/2] = p[i*2];
+		if (DebugMode) {
+			DoSlotCheck(DebugMode);
+		} else {
+			char *p = (char*)PersonalData->name;
+			for (int i = 0; i < 10; i++) {
+				if (p[i*2] == 0x00) {
+					p[i*2/2] = 0;
+				} else {
+					p[i*2/2] = p[i*2];
+				}
 			}
+			if (language == -1) language = (PersonalData->language);
+			BootSplashInit2(UseNTRSplash, HealthAndSafety_MSG, language, false);
 		}
-	
-		if (language == -1) { language = (PersonalData->language); }
-	
-		BootSplashInit2(UseNTRSplash, HealthAndSafety_MSG, language, false);
 	}
 	
-	// If card is inserted but slot is powered off, turn slot-1 back on. This can happen with certain flashcarts that do not show up
-	// in DSi's System Menu. The console will always boot with the slot powered off for these type of cards.
-	// This is not an issue on 3DS however. TWL_FIRM doesn't care and will still power slot-1 as long as some kind of valid cart is
-	// inserted.
-	if(REG_SCFG_MC == 0x10) { fifoSendValue32(FIFO_USER_02, 1); }
-	
-	fifoSendValue32(FIFO_USER_01, 1);
-	
-	if (LegacyMode && !TWLCLK) { fifoSendValue32(FIFO_USER_05, 1); }
-	
-	fifoWaitValue32(FIFO_USER_03);
-	
-	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
-	
+	if (LegacyMode && !TWLCLK) { 
+		fifoSendValue32(FIFO_USER_01, 1); 
+		fifoWaitValue32(FIFO_USER_02);
+	}
+	DoWait();
 	sysSetCardOwner (BUS_OWNER_ARM9);
 	
-	cardReadHeader((uint8*)&ndsHeader);
-	
+	DoCardInit(DebugMode);
+		
 	// Force disable Legacy Mode if a TWL cart is detected. Old cart loader doesn't support TWL carts.
 	if ((ndsHeader.unitCode == 0x03) | (ndsHeader.unitCode == 0x02)) { 
 		LegacyMode = false; 
+		// Force specific settings needed for proper support for retail TWL carts
 		if (ndsHeader.unitCode == 0x03) {
-			scfgUnlock = true;
+			scfgUnlock = false;
 			TWLMODE = true;
 			TWLEXTRAM = true;
 			TWLCLK = true;	// false == NTR, true == TWL
 			TWLVRAM = true;
 			soundFreq = true;
+			if (!memcmp(gameCode, "DSYE", 4))LegacyMode = true;
 		} else {
 			TWLCLK = true;
 		}
-	}
+	} else if (!memcmp(gameCode, "ASMA", 4) | !memcmp(gameCode, "ACEK", 4) ) { 
+		//Original R4 doesn't like new bootloader
+		LegacyMode = true;
+		DoWait(60);
+	} else if (!memcmp(gameTitle, "D!S!XTREME", 9)) {
+		// DS-Xtreme does not like running in TWL clock speeds. (write function likely goes too fast and semi-bricks hidden sector region randomly)
+		TWLCLK = false;
+	};
 	
-	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
-
 	while(1) {
 		// If SCFG_MC is returning as zero/null, this means SCFG_EXT registers are locked on arm9 or user attempted to run this while in NTR mode.
 		if((REG_SCFG_MC == 0x00) | (REG_SCFG_MC == 0x11) | (REG_SCFG_MC == 0x10)) {
 			if (UseAnimatedSplash) {
 				BootSplashInit2(false, false, 0, true);
 			} else {
-				ErrorScreen();
-				for (int i = 0; i < 300; i++) { swiWaitForVBlank(); }
+				if (!DebugMode) {
+					ErrorScreen(DebugMode);
+				} else {
+					DisplayText("Error has occured.!\nEither card ejected late,\nor NTR mode detected!\nPress any button to exit...", true);
+				}
+				do { swiWaitForVBlank(); scanKeys(); } while (!keysDown());
 			}
 			break;
 		} else {

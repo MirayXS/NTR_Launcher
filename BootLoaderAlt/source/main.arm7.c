@@ -39,11 +39,6 @@
 #include <nds/ipc.h>
 #include <string.h>
 
-// #include <nds/registers_alt.h>
-// #include <nds/memory.h>
-// #include <nds/card.h>
-// #include <stdio.h>
-
 #ifndef NULL
 #define NULL 0
 #endif
@@ -57,6 +52,17 @@ External functions
 extern void arm7_clearmem (void* loc, size_t len);
 extern void arm7_reset (void);
 
+extern u32 dsiMode;
+extern u32 language;
+extern u32 sdAccess;
+extern u32 scfgUnlock;
+extern u32 twlMode;
+extern u32 twlClock;
+extern u32 boostVram;
+extern u32 soundFreq;
+extern u32 extendRam;
+extern u32 debugMode;
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Important things
 #define NDS_HEAD 0x027FFE00
@@ -64,7 +70,6 @@ tNDSHeader* ndsHeader = (tNDSHeader*)NDS_HEAD;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Used for debugging purposes
-/* Disabled for now. Re-enable to debug problems
 static void errorOutput (u32 code) {
 // Set the error code, then set our state to "error"
 	arm9_errorCode = code;
@@ -72,7 +77,7 @@ static void errorOutput (u32 code) {
 	// Stop
 	while(1);
 }
-*/
+
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Firmware stuff
@@ -426,7 +431,9 @@ static void NDSTouchscreenMode(void) {
 // Main function
 
 void arm7_main (void) {
-
+	
+	arm9_DebugMode = debugMode;
+	
 	NDSTouchscreenMode();
 	*(u16*)0x4000500 = 0x807F;
 	
@@ -440,20 +447,22 @@ void arm7_main (void) {
 	REG_MBK7=0x09803940;
 	REG_MBK8=0x09C03980;
 	REG_MBK9=0xFCFFFF0F;
-
+		
 	REG_SCFG_ROM = 0x703;
 	REG_SCFG_EXT = 0x92A00000;
-	REG_SCFG_EXT &= ~(1UL << 31);
-
+	
+	if (twlClock) { REG_SCFG_CLK = 0x0185; } else { REG_SCFG_CLK = 0x0101; }
+	if (scfgUnlock) { REG_SCFG_EXT |= BIT(18); } else { REG_SCFG_EXT &= ~(1UL << 31); }
+	
 	int errorCode;
 	
 	// Synchronise start
-	while (ipcRecvState() != ARM9_START);
+	while (ipcRecvState() != ARM9_START) { }
 	
 	ipcSendState(ARM7_START);
 	
 	// Wait until ARM9 is ready
-	while (ipcRecvState() != ARM9_READY);
+	while (ipcRecvState() != ARM9_READY) { }
 
 	ipcSendState(ARM7_MEMCLR);
 	
@@ -463,14 +472,13 @@ void arm7_main (void) {
 	ipcSendState(ARM7_LOADBIN);
 
 	// Load the NDS file
+	
 	errorCode = arm7_loadBinary();
 	
-	/*if (errorCode) {
-		// errorOutput(errorCode);
-	}*/
+	if (errorCode & arm9_DebugMode) errorOutput(errorCode);
 		
 	ipcSendState(ARM7_BOOTBIN);	
-
+	
 	arm7_reset();
 }
 

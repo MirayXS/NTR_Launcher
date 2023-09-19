@@ -1,12 +1,43 @@
 @---------------------------------------------------------------------------------
 	.section ".init"
 	.global _start
+	.global dsiMode
+	.global language
+	.global sdAccess
+	.global scfgUnlock
+	.global twlMode
+	.global twlClock
+	.global boostVram
+	.global soundFreq
+	.global extendRam
+	.global debugMode
 @---------------------------------------------------------------------------------
 	.align	4
 	.arm
 @---------------------------------------------------------------------------------
 _start:
 @---------------------------------------------------------------------------------
+	dsiMode:
+		.word	0x00000000
+	language:
+		.word	0x00000000
+	sdAccess:
+		.word	0x00000000
+	scfgUnlock:
+		.word	0x00000000
+	twlMode:
+		.word	0x00000000
+	twlClock:
+		.word	0x00000000
+	boostVram:
+		.word	0x00000000
+	soundFreq:
+		.word	0x00000000
+	extendRam:
+		.word	0x00000000
+	debugMode:
+		.word	0x00000000
+
 	mov	r0, #0x04000000
 	mov	r1, #0
 	str	r1, [r0,#0x208]		@ REG_IME

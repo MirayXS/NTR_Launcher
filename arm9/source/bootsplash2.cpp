@@ -17,6 +17,7 @@
 */
 
 #include <nds.h>
+#include <stdio.h>
 #include <maxmod9.h>
 
 #include "soundbank.h"
@@ -2251,7 +2252,7 @@ void BootSplashInit2(bool UseNTRSplash, bool HealthandSafety_MSG, int language, 
 		bgMapSub[i] = (u16)i;
 	}
 	
-	if (DisplayErrorSplash) {		
+	if (DisplayErrorSplash) {
 		ErrorNoCard();
 		return;
 	}

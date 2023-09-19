@@ -16,22 +16,12 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef BOOTSPLASH_H
-#define BOOTSPLASH_H
+#ifndef ENCRYPTION_H
+#define ENCRYPTION_H
 
-#ifdef __cplusplus
-extern "C" {
+#include <nds/ndstypes.h>
+void init_keycode (u32 idcode, u32 level, u32 modulo, int iCardDevice);
+void crypt_64bit_down (u32* ptr);
+void crypt_64bit_up (u32* ptr);
+
 #endif
-
-void vramcpy_ui (void* dest, const void* src, int size);
-void ErrorScreen (bool DebugMode);
-void CartridgePrompt ();
-void LoadScreen (bool DebugMode);
-void BootSplashInit (bool DebugMode);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif // BOOTSPLASH_H
-

@@ -42,6 +42,8 @@
 
 #include "common.h"
 
+bool arm9_DebugMode = false;
+
 volatile int arm9_stateFlag = ARM9_BOOT;
 volatile u32 arm9_errorCode = 0xFFFFFFFF;
 volatile bool arm9_errorClearBG = false;
@@ -62,19 +64,17 @@ Red = 00, Yellow = 01, Green = 10, Blue = 11
 
 Written by Chishm
 --------------------------------------------------------------------------*/
-/* Re-enable for debugging.
+
 static void arm9_errorOutput (u32 code) {
 	int i, j, k;
 	u16 colour;
 	
-	REG_POWERCNT = POWER_LCD | POWER_2D_A;
+	REG_POWERCNT = (u16)(POWER_LCD | POWER_2D_A);
 	REG_DISPCNT = MODE_FB0;
 	VRAM_A_CR = VRAM_ENABLE;
 	
 	// Clear display
-	for (i = 0; i < 256*192; i++) {
-		VRAM_A[i] = 0x0000;
-	}
+	for (i = 0; i < 256*192; i++) { VRAM_A[i] = 0x0000; }
 	
 	// Draw boxes of colour, signifying error codes
 	
@@ -116,7 +116,6 @@ static void arm9_errorOutput (u32 code) {
 		}
 	}		
 }
-*/
 
 /*-------------------------------------------------------------------------
 arm9_main
@@ -212,21 +211,18 @@ void arm9_main (void) {
 	VRAM_I_CR = 0;
 	REG_POWERCNT  = 0x820F;
 
-
 	// set ARM9 state to ready and wait for instructions from ARM7
 	ipcSendState(ARM9_READY);
-	// Re-enable for debugging
-	/*
-	while (ipcRecvState() != ARM7_BOOTBIN) {
-		if (ipcRecvState() == ARM7_ERR) {
-			arm9_errorOutput (arm9_errorCode);
-			// Halt after displaying error code
-			while(1);
+	
+	if (arm9_DebugMode) {
+		while (ipcRecvState() != ARM7_BOOTBIN) {
+			if (ipcRecvState() == ARM7_ERR) {
+				arm9_errorOutput (arm9_errorCode);
+				// Halt after displaying error code
+				while(1);
+			}
 		}
 	}
-	*/
-
-	// arm9_errorOutput (*(u32*)(first), true);
 	
 	arm9_reset();
 }

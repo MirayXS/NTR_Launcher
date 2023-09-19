@@ -22,37 +22,21 @@
 
 #include <maxmod7.h>
 
+bool SCFGCLKCheck = false;
+
 void VcountHandler() { inputGetAndSend(); }
-void VblankHandler(void) { }
 
-int PowerOnSlot() {
-    REG_SCFG_MC = 0x04;    // set state=1
-    while(REG_SCFG_MC&1);
-    
-    REG_SCFG_MC = 0x08;    // set state=2      
-    while(REG_SCFG_MC&1);
-    
-    REG_ROMCTRL = 0x20000000; // set ROMCTRL=20000000h
-    return 0;
-}
-
-int PowerOffSlot() {
-    if(REG_SCFG_MC&1) return 1; 
-    
-    REG_SCFG_MC = 0x0C; // set state=3 
-    while(REG_SCFG_MC&1);
-    return 0;
-}
-
-int TWL_ResetSlot1() {
-	PowerOffSlot();
-	for (int i = 0; i < 30; i++) { swiWaitForVBlank(); }
-	PowerOnSlot();
-	return 0;
-}
+void VblankHandler(void) {
+	if (!SCFGCLKCheck) { 
+		if (fifoCheckValue32(FIFO_USER_01)) {
+			SCFGCLKCheck = true;
+			REG_SCFG_CLK = 0x0180;
+			fifoSendValue32(FIFO_USER_02, 1);
+		}
+	}
+ }
 
 int main(void) {
-
 	// read User Settings from firmware
 	readUserSettings();
 	irqInit();
@@ -76,17 +60,6 @@ int main(void) {
 	i2cWriteRegister(0x4A, 0x12, 0x00);	// Press power-button for auto-reset
 	i2cWriteRegister(0x4A, 0x70, 0x01);	// Bootflag = Warmboot/SkipHealthSafety
 
-	// Make sure Arm9 had a chance to check slot status
-	fifoWaitValue32(FIFO_USER_01);
-	
-	if(fifoCheckValue32(FIFO_USER_02)) { 
-		if(fifoCheckValue32(FIFO_USER_04)) { TWL_ResetSlot1(); } else { PowerOnSlot(); }
-	}	
-	
-	if (fifoCheckValue32(FIFO_USER_05)) { REG_SCFG_CLK = 0x0180; }
-	
-	fifoSendValue32(FIFO_USER_03, 1);
-	
 	while (1) { swiWaitForVBlank(); }
 }
 

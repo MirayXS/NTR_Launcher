@@ -132,7 +132,7 @@ static void arm9_errorOutput (u32 code, bool clearBG) {
 	int i, j, k;
 	u16 colour;
 	
-	REG_POWERCNT = POWER_LCD | POWER_2D_A;
+	REG_POWERCNT = (u16)(POWER_LCD | POWER_2D_A);
 	REG_DISPCNT = MODE_FB0;
 	VRAM_A_CR = VRAM_ENABLE;
 	
@@ -311,25 +311,22 @@ void __attribute__((target("arm"))) arm9_main (void) {
 	while(REG_VCOUNT!=191);
 	while(REG_VCOUNT==191);
 	
+	REG_SCFG_CLK = 0x80;
+	if (arm9_TWLClockSpeeds) { REG_SCFG_CLK |= BIT(0); }
 	if (arm9_dsiModeConfirmed) {
 		REG_SCFG_EXT = 0x8207F100;
-		REG_SCFG_CLK = 0x0084;
-		if (arm9_TWLClockSpeeds) { REG_SCFG_CLK |= BIT(0); }
 		REG_SCFG_RST = 1;
 	} else {
 		// REG_SCFG_EXT = 0x8200C000;
 		REG_SCFG_EXT=0x82000000;
-		REG_SCFG_CLK = 0x80;
-		if (arm9_TWLClockSpeeds) { REG_SCFG_CLK |= BIT(0); }
-		
 		if (arm9_ExtendRam) {
 			REG_SCFG_EXT |= BIT(14);
 			REG_SCFG_EXT |= BIT(15);
 		}		
 		// Extended VRAM Access
-		if (arm9_boostVram) {  REG_SCFG_EXT |= BIT(13); }
+		if (arm9_boostVram)REG_SCFG_EXT |= BIT(13);
 		// lock SCFG
-		if (!arm9_scfgUnlock) { REG_SCFG_EXT &= ~(1UL << 31); }
+		if (!arm9_scfgUnlock)REG_SCFG_EXT &= ~(1UL << 31);
 	}
 	
 	// wait for vblank then boot
