@@ -805,8 +805,8 @@ void arm7_main (void) {
 	arm9_dsiModeConfirmed = twlMode;
 	arm9_TWLClockSpeeds = twlClock;
 	arm9_boostVram = boostVram;
-	arm9_scfgUnlock = scfgUnlock;	
-	arm9_ExtendRam = extendRam;	
+	arm9_scfgUnlock = scfgUnlock;
+	arm9_ExtendRam = extendRam;
 	
 	if (twlClock) {
 		// if (!sdAccess) { REG_SCFG_CLK = 0x0186; } else { REG_SCFG_CLK = 0x0187; }
@@ -815,8 +815,8 @@ void arm7_main (void) {
 		// if (!sdAccess) { REG_SCFG_CLK = 0x0180; } else { REG_SCFG_CLK = 0x0181; }
 		REG_SCFG_CLK = 0x0101;
 	}
+	
 	if (twlMode) { REG_SCFG_EXT = 0x92FBFB06; } else { REG_SCFG_EXT = 0x92A00000; }
-	//  if (sdAccess) { REG_SCFG_EXT |= BIT(18); }
 	if (scfgUnlock) { REG_SCFG_EXT |= BIT(18); } else { REG_SCFG_EXT &= ~(1UL << 31); }
 	
 	while (arm9_stateFlag != ARM9_READY);

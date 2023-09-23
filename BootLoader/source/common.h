@@ -36,10 +36,10 @@ typedef enum {ARM9_BOOT, ARM9_START, ARM9_MEMCLR, ARM9_READY, ARM9_BOOTBIN, ARM9
 extern tNDSHeader* ndsHeader;
 
 extern bool arm9_dsiModeConfirmed;
+extern bool arm9_ExtendRam;
 extern bool arm9_boostVram;
 extern bool arm9_scfgUnlock;
 extern bool arm9_TWLClockSpeeds;
-extern bool arm9_ExtendRam;
 extern bool arm9_DebugMode;
 
 extern volatile int arm9_stateFlag;

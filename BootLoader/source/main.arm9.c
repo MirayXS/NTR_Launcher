@@ -322,7 +322,7 @@ void __attribute__((target("arm"))) arm9_main (void) {
 		if (arm9_ExtendRam) {
 			REG_SCFG_EXT |= BIT(14);
 			REG_SCFG_EXT |= BIT(15);
-		}		
+		}
 		// Extended VRAM Access
 		if (arm9_boostVram)REG_SCFG_EXT |= BIT(13);
 		// lock SCFG
