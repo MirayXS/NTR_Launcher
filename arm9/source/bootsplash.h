@@ -23,11 +23,17 @@
 extern "C" {
 #endif
 
-void vramcpy_ui (void* dest, const void* src, int size);
-void ErrorScreen (bool DebugMode);
-void CartridgePrompt ();
-void LoadScreen (bool DebugMode);
-void BootSplashInit (bool DebugMode);
+// void vramcpy_ui (void* dest, const void* src, int size);
+void BootJingle (void);
+void BootJingleDSi (void);
+void BootSplashDSi (bool HealthandSafety_MSG, int language);
+void CartridgePrompt (void);
+void CartridgePromptDSi (void);
+void CartridgePromptNoHS (void);
+void BootSplashDS (bool HealthandSafety_MSG, int language);
+void FadeFX (void);
+void ErrorNoCard (void);
+void BootSplashInit (bool UseNTRSplash, bool HealthandSafety_MSG, int language, bool DisplayErrorSplash);
 
 #ifdef __cplusplus
 }

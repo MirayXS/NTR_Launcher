@@ -16,12 +16,18 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef ENCRYPTION_H
-#define ENCRYPTION_H
+#ifndef DEBUGCONSOLE_H
+#define DEBUGCONSOLE_H
 
-#include <nds/ndstypes.h>
-void init_keycode (u32 idcode, u32 level, u32 modulo);
-void crypt_64bit_down (u32* ptr);
-void crypt_64bit_up (u32* ptr);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void InitConsole(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
+

@@ -1,9 +1,9 @@
 /*
  main.arm9.c
- 
+
  By Michael Chisholm (Chishm)
- 
- All resetMemory and startBinary functions are based 
+
+ All resetMemory and startBinary functions are based
  on the MultiNDS loader by Darkain.
  Original source available at:
  http://cvs.sourceforge.net/viewcvs.py/ndslib/ndslib/examples/loader/boot/main.cpp
@@ -37,194 +37,165 @@
 #include <nds/system.h>
 #include <nds/ipc.h>
 
-#include <nds/dma.h>
-#include <stddef.h> // NULL
-#include <stdlib.h>
-
 #include "common.h"
+#include "miniconsole.h"
 
-tNDSHeader* ndsHeader = NULL;
-
-// bool dsiModeConfirmed = false;
-bool arm9_dsiModeConfirmed = false;
-bool arm9_boostVram = false;
-bool arm9_scfgUnlock = false;
-bool arm9_TWLClockSpeeds = false;
-bool arm9_ExtendRam = false;
-bool arm9_DebugMode = false;
+#define TMP_DATA 0x027FC000
 
 volatile int arm9_stateFlag = ARM9_BOOT;
 volatile u32 arm9_errorCode = 0xFFFFFFFF;
 volatile bool arm9_errorClearBG = false;
+volatile bool consoleDebugMode = false;
 volatile u32 arm9_BLANK_RAM = 0;
+volatile u32 defaultFontPalSlot = 0;
+volatile tLauncherSettings* tmpData = (tLauncherSettings*)TMP_DATA;
 
+static bool scfgUnlock = false;
+static bool TWLMODE = false;
+static bool TWLVRAM = false;
+static bool TWLCLK = false;
+static bool debugMode = false;
+static bool consoleInit = false;
+
+static char TXT_STATUS[] = "STATUS: ";
+static char TXT_ERROR[] = "ERROR: ";
+static char ERRTXT_NONE[] = "NONE";
+static char ERRTXT_STS_CLRMEM[] = "CLEAR MEMORY";
+static char ERRTXT_STS_LOAD_BIN[] = "LOAD CART";
+static char ERRTXT_STS_STARTBIN[] = "START BINARY";
+static char ERRTXT_STS_START[] = "BOOTLOADER STARTUP";
+static char ERRTXT_LOAD_NORM[] = "LOAD NORMAL";
+static char ERRTXT_LOAD_OTHR[] = "LOAD OTHER";
+static char ERRTXT_SEC_NORM[] = "SECURE NORMAL";
+static char ERRTXT_SEC_OTHR[] = "SECURE OTHER";
+static char ERRTXT_LOGO_CRC[] = "LOGO CRC";
+static char ERRTXT_HEAD_CRC[] = "HEADER CRC";
+static char NEW_LINE[] = "\n";
+	
 /*-------------------------------------------------------------------------
 External functions
 --------------------------------------------------------------------------*/
 extern void arm9_clearCache (void);
-
-void initMBKARM9() {
-
-	if (arm9_dsiModeConfirmed) {
-		// default dsiware settings
-	
-		// WRAM-B fully mapped to arm7 // inverted order
-		// *((vu32*)REG_MBK2)=0x9195999D;
-		// *((vu32*)REG_MBK3)=0x8185898D;
-		
-		// WRAM-C fully mapped to arm7 // inverted order
-		// *((vu32*)REG_MBK4)=0x9195999D;
-		// *((vu32*)REG_MBK5)=0x8185898D;
-			
-		// WRAM-A not mapped (reserved to arm7)
-		// REG_MBK6=0x00000000;
-		// WRAM-B mapped to the 0x3740000 - 0x37BFFFF area : 512k // why? only 256k real memory is there
-		// REG_MBK7=0x07C03740; // same as dsiware
-		// WRAM-C mapped to the 0x3700000 - 0x373FFFF area : 256k
-		// REG_MBK8=0x07403700; // same as dsiware
-		
-		// This gets set on arm7
-		// *((vu32*)REG_MBK1)=0x8D898581;
-		// *((vu32*)REG_MBK2)=0x8C888480;
-		// *((vu32*)REG_MBK3)=0x9C989490;
-		// *((vu32*)REG_MBK4)=0x8C888480;
-		// *((vu32*)REG_MBK5)=0x9C989490;
-	
-		REG_MBK6=0x00000000;
-		REG_MBK7=0x07C03740;
-		REG_MBK8=0x07403700;
-		REG_MBK9=0x0300000F;
-	} else {
-		// MBK settings for NTR mode games
-		// *((vu32*)REG_MBK1)=0x8D898581;
-		// *((vu32*)REG_MBK2)=0x91898581;
-		// *((vu32*)REG_MBK3)=0x91999591;
-		// *((vu32*)REG_MBK4)=0x91898581;
-		// *((vu32*)REG_MBK5)=0x91999591;
-	
-		REG_MBK6=0x00003000;
-		REG_MBK7=0x00003000;
-		REG_MBK8=0x00003000;
-		REG_MBK9=0xFCFFFF0F;
-	}
-}
-
-void SetBrightness(u8 screen, s8 bright) {
-
-	u16 mode = 1 << 14;
-
-	if (bright < 0) {
-		mode = 2 << 14;
-		bright = -bright;
-	}
-	
-	if (bright > 31) { bright = 31; }
-	
-	*(u16*)(0x0400006C + (0x1000 * screen)) = bright + mode;
-}
+extern void arm9_reset (void);
+extern void Print(char *str);
 
 /*-------------------------------------------------------------------------
 arm9_errorOutput
 Displays an error code on screen.
+
+Each box is 2 bits, and left-to-right is most-significant bits to least.
+Red = 00, Yellow = 01, Green = 10, Blue = 11
+
 Written by Chishm
 --------------------------------------------------------------------------*/
-static void arm9_errorOutput (u32 code, bool clearBG) {
-	int i, j, k;
-	u16 colour;
-	
-	REG_POWERCNT = (u16)(POWER_LCD | POWER_2D_A);
-	REG_DISPCNT = MODE_FB0;
-	VRAM_A_CR = VRAM_ENABLE;
-	
-	if (clearBG) {
-		// Clear display
-		// for (i = 0; i < 256*192; i++) { VRAM_A[i] = 0x0000; }
-		for (i = 0; i < 256*192; i++) { VRAM_A[i] = 0xFFFF; }
+static void arm9_errorOutput (u32 code) {
+	Print(NEW_LINE);
+	switch (code) {
+		case (ERR_NONE) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x8360;
+			Print(TXT_STATUS);
+			Print(ERRTXT_NONE);
+		} break;
+		case (ERR_STS_CLR_MEM) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x8360;
+			Print(TXT_STATUS);
+			Print(ERRTXT_STS_CLRMEM);
+		} break;
+		case (ERR_STS_LOAD_BIN) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x8360;
+			Print(TXT_STATUS);
+			Print(ERRTXT_STS_LOAD_BIN);
+		} break;
+		case (ERR_STS_STARTBIN) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x8360;
+			Print(TXT_STATUS);
+			Print(ERRTXT_STS_STARTBIN);
+		} break;
+		case (ERR_STS_START) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x8360;
+			Print(TXT_STATUS);
+			Print(ERRTXT_STS_START);
+		} break;
+		case (ERR_LOAD_NORM) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
+			Print(TXT_ERROR);
+			Print(ERRTXT_LOAD_NORM);
+		} break;
+		case (ERR_LOAD_OTHR) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
+			Print(TXT_ERROR);
+			Print(ERRTXT_LOAD_OTHR);
+		} break;
+		case (ERR_SEC_NORM) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
+			Print(TXT_ERROR);
+			Print(ERRTXT_SEC_NORM);
+		} break;
+		case (ERR_SEC_OTHR) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
+			Print(TXT_ERROR);
+			Print(ERRTXT_SEC_OTHR);
+		} break;
+		case (ERR_LOGO_CRC) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
+			Print(TXT_ERROR);
+			Print(ERRTXT_LOGO_CRC);
+		} break;
+		case (ERR_HEAD_CRC) : {
+			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
+			Print(TXT_ERROR);
+			Print(ERRTXT_HEAD_CRC);
+		} break;
 	}
-	
-	// Draw boxes of colour, signifying error codes
-	
-	if ((code >> 16) != 0) {
-		// high 16 bits
-		for (i = 0; i < 8; i++) {						// Pair of bits to use
-			if (((code>>(30-2*i))&3) == 0) {
-				colour = 0x001F; // Red
-			} else if (((code>>(30-2*i))&3) == 1) {
-				colour = 0x03FF; // Yellow
-			} else if (((code>>(30-2*i))&3) == 2) {
-				colour = 0x03E0; // Green
-			} else {
-				colour = 0x7C00; // Blue
-			}
-			for (j = 71; j < 87; j++) { 				// Row
-				for (k = 32*i+8; k < 32*i+24; k++) {	// Column
-					VRAM_A[j*256+k] = colour;
-				}
-			}
-		}
-	}
-
-	if ((code >> 8) != 0) {
-		// Low 16 bits
-		for (i = 0; i < 8; i++) {						// Pair of bits to use
-			if (((code>>(14-2*i))&3) == 0) {
-				colour = 0x001F; // Red
-			} else if (((code>>(14-2*i))&3) == 1) {
-				colour = 0x03FF; // Yellow
-			} else if (((code>>(14-2*i))&3) == 2) {
-				colour = 0x03E0; // Green
-			} else {
-				colour = 0x7C00; // Blue
-			}
-			for (j = 103; j < 119; j++) { 				// Row
-				for (k = 32*i+8; k < 32*i+24; k++) {	// Column
-					VRAM_A[j*256+k] = colour;
-				}
-			}
-		}
-	} else {
-		// Low 8 bits
-		for (i = 0; i < 4; i++) {						// Pair of bits to use
-			if (((code>>(6-2*i))&3) == 0) {
-				colour = 0x001F; // Red
-			} else if (((code>>(6-2*i))&3) == 1) {
-				colour = 0x03FF; // Yellow
-			} else if (((code>>(6-2*i))&3) == 2) {
-				colour = 0x03E0; // Green
-			} else {
-				colour = 0x7C00; // Blue
-			}
-			for (j = 87; j < 103; j++) { 				// Row
-				for (k = 32*i+72; k < 32*i+88; k++) {	// Column
-					VRAM_A[j*256+k] = colour;
-				}
-			}
-		}
-	}		
 }
 
 /*-------------------------------------------------------------------------
 arm9_main
 Clears the ARM9's icahce and dcache
 Clears the ARM9's DMA channels and resets video memory
-Jumps to the ARM9 NDS binary in sync with the display and ARM7
+Jumps to the ARM9 NDS binary in sync with the  ARM7
 Written by Darkain, modified by Chishm
 --------------------------------------------------------------------------*/
-void __attribute__((target("arm"))) arm9_main (void) {
-
-	initMBKARM9();
-
+void arm9_main (void) {
+			
 	register int i;
 		
+	if (tmpData->scfgUnlock == 0x01)scfgUnlock = true;
+	if (tmpData->twlMode == 0x01)TWLMODE = true;
+	if (tmpData->twlVRAM == 0x01)TWLVRAM = true;
+	if (tmpData->twlCLK == 0x01)TWLCLK = true;
+	if (tmpData->debugMode == 0x01)debugMode = true;
+	
+	if (TWLMODE) {
+		REG_MBK6=0x00000000;
+		REG_MBK7=0x07C03740;
+		REG_MBK8=0x07403700;
+		REG_MBK9=0x0300000F;
+	} else {
+		// MBK settings for NTR mode games
+		REG_MBK6=0x00003000;
+		REG_MBK7=0x00003000;
+		REG_MBK8=0x00003000;
+		REG_MBK9=0xFCFFFF0F;
+	}
+	
 	//set shared ram to ARM7
 	WRAM_CR = 0x03;
 	REG_EXMEMCNT = 0xE880;
 
-	arm9_stateFlag = ARM9_START;
-
+	// Disable interrupts
 	REG_IME = 0;
 	REG_IE = 0;
 	REG_IF = ~0;
+	
+	
+	if (debugMode)arm9_errorCode = ERR_STS_START;
+
+	// Synchronise start
+	ipcSendState(ARM9_START);
+	while (ipcRecvState() != ARM7_START);
+
+	ipcSendState(ARM9_MEMCLR);
 
 	arm9_clearCache();
 
@@ -232,17 +203,30 @@ void __attribute__((target("arm"))) arm9_main (void) {
 		(*(vu32*)(i+0x00000000)) = 0x00000000;      //clear ITCM
 		(*(vu32*)(i+0x00800000)) = 0x00000000;      //clear DTCM
 	}
-	
+
 	for (i=16*1024; i<32*1024; i+=4) {  //second 16KB
 		(*(vu32*)(i+0x00000000)) = 0x00000000;      //clear ITCM
 	}
 
-	arm9_stateFlag = ARM9_MEMCLR;
-
 	(*(vu32*)0x00803FFC) = 0;   //IRQ_HANDLER ARM9 version
 	(*(vu32*)0x00803FF8) = ~0;  //VBLANK_INTR_WAIT_FLAGS ARM9 version
 
-	//clear out ARM9 DMA channels
+	// Clear out FIFO
+	REG_IPC_FIFO_CR = IPC_FIFO_ENABLE | IPC_FIFO_SEND_CLEAR;
+	REG_IPC_FIFO_CR = 0;
+
+	// Blank out VRAM
+	VRAM_A_CR = 0x80;
+	VRAM_B_CR = 0x80;
+// Don't mess with the VRAM used for execution
+//	VRAM_D_CR = 0x80; 
+	VRAM_E_CR = 0x80;
+	VRAM_F_CR = 0x80;
+	VRAM_G_CR = 0x80;
+	VRAM_H_CR = 0x80;
+	VRAM_I_CR = 0x80;
+
+	// Clear out ARM9 DMA channels
 	for (i=0; i<4; i++) {
 		DMA_CR(i) = 0;
 		DMA_SRC(i) = 0;
@@ -251,88 +235,74 @@ void __attribute__((target("arm"))) arm9_main (void) {
 		TIMER_DATA(i) = 0;
 	}
 	
-	// Clear out FIFO
-	REG_IPC_SYNC = 0;
-	REG_IPC_FIFO_CR = IPC_FIFO_ENABLE | IPC_FIFO_SEND_CLEAR;
-	REG_IPC_FIFO_CR = 0;
-
-	VRAM_A_CR = 0x80;
-	VRAM_B_CR = 0x80;
-	VRAM_C_CR = 0x80;
-	// Don't mess with the VRAM used for execution
-	//	VRAM_D_CR = 0x80;
-	VRAM_E_CR = 0x80;
-	VRAM_F_CR = 0x80;
-	VRAM_G_CR = 0x80;
-	VRAM_H_CR = 0x80;
-	VRAM_I_CR = 0x80;
-	BG_PALETTE[0] = 0xFFFF;
-	dmaFill((u16*)&arm9_BLANK_RAM, BG_PALETTE+1, (2*1024)-2);
-	dmaFill((u16*)&arm9_BLANK_RAM, OAM, 2*1024);
-	dmaFill((u16*)&arm9_BLANK_RAM, (u16*)0x04000000, 0x56);  // Clear main display registers
-	dmaFill((u16*)&arm9_BLANK_RAM, (u16*)0x04001000, 0x56);  // Clear sub display registers
-	dmaFill((u16*)&arm9_BLANK_RAM, VRAM_A, 0x20000*3);		// Banks A, B, C
-	dmaFill((u16*)&arm9_BLANK_RAM, VRAM_D, 272*1024);		// Banks D (excluded), E, F, G, H, I
-
-	REG_DISPSTAT = 0;
-	//videoSetMode(0);
-	//videoSetModeSub(0);
 	VRAM_A_CR = 0;
 	VRAM_B_CR = 0;
-	VRAM_C_CR = 0;
-	// Don't mess with the ARM7's VRAM
-	//VRAM_D_CR = 0;
+//	Don't mess with the VRAM used for execution
+//	VRAM_D_CR = 0;
 	VRAM_E_CR = 0;
 	VRAM_F_CR = 0;
 	VRAM_G_CR = 0;
 	VRAM_H_CR = 0;
 	VRAM_I_CR = 0;
-	REG_POWERCNT = 0x820F;
+	
+	BG_PALETTE[0] = 0xFFFF;
+	
+	videoSetMode(0);
+	
+	dmaFill((void*)&arm9_BLANK_RAM, VRAM_A,  256*1024);		// Banks A, B
+	dmaFill((void*)&arm9_BLANK_RAM, VRAM_E,  128*1024);		// Banks E, F, G, H, I
+	
+	// set ARM9 state to ready and wait for instructions from ARM7
+	ipcSendState(ARM9_READY);
+	while (ipcRecvState() != ARM7_BOOTBIN) {
+		if (ipcRecvState() == ARM7_ERR) {
+			if (!consoleInit) {
+				BG_PALETTE_SUB[0] = RGB15(31,31,31);
+				BG_PALETTE_SUB[255] = RGB15(0,0,0);
+				defaultFontPalSlot = 31;
+				miniconsoleSetWindow(5, 11, 24, 1); // Set console position for debug text if/when needed.
+				consoleInit = true;
+			}
+			arm9_errorOutput (arm9_errorCode);
+			// Halt after displaying error code
+			while(1);
+		} else if ((arm9_errorCode != ERR_NONE) && debugMode) {
+			if (!consoleInit) {
+				BG_PALETTE_SUB[0] = RGB15(31,31,31);
+				BG_PALETTE_SUB[255] = RGB15(0,0,0);
+				defaultFontPalSlot = 31;
+				miniconsoleSetWindow(5, 11, 24, 1); // Set console position for debug text if/when needed.
+				consoleInit = true;
+			}
+			while(REG_VCOUNT!=191); // Add vblank delay. Arm7 can somtimes go through the status codes pretty quick.
+			while(REG_VCOUNT==191);
+			arm9_errorOutput (arm9_errorCode);
+			arm9_errorCode = ERR_NONE;
+		}
+	}
+		
+	VRAM_C_CR = 0x80;
+	// BG_PALETTE_SUB[0] = 0xFFFF;
+	dmaFill((void*)&arm9_BLANK_RAM, BG_PALETTE+1, (2*1024)-2);
+	dmaFill((void*)&arm9_BLANK_RAM, OAM,     2*1024);
 
-	*(u16*)0x0400006C |= BIT(14);
-	*(u16*)0x0400006C &= BIT(15);
-	SetBrightness(0, 0);
-	SetBrightness(1, 0);
-		
-	// set ARM9 state to ready and wait for it to change again
-	arm9_stateFlag = ARM9_READY;
-	while (arm9_stateFlag != ARM9_BOOTBIN) {
-		if (arm9_stateFlag == ARM9_DISPERR) {
-			// Re-enable for debugging
-			if (arm9_DebugMode) { arm9_errorOutput(arm9_errorCode, arm9_errorClearBG); }
-			if (arm9_stateFlag == ARM9_DISPERR) { arm9_stateFlag = ARM9_READY; }
-		}
-		
-		if (arm9_stateFlag == ARM9_SETSCFG) { arm9_stateFlag = ARM9_READY; }
-	}
+	// Clear out display registers
+	vu16 *mainregs = (vu16*)0x04000000;
+	vu16 *subregs = (vu16*)0x04001000;
+	for (i=0; i<43; i++) { mainregs[i] = 0; subregs[i] = 0; }
+	REG_DISPSTAT = 0;
+	VRAM_C_CR = 0;
+	videoSetModeSub(0);
+	REG_POWERCNT  = 0x820F;
 	
-	VoidFn arm9code = (VoidFn)ndsHeader->arm9executeAddress;
-		
-	while(REG_VCOUNT!=191);
-	while(REG_VCOUNT==191);
-	
-	REG_SCFG_CLK = 0x80;
-	if (arm9_TWLClockSpeeds) { REG_SCFG_CLK |= BIT(0); }
-	if (arm9_dsiModeConfirmed) {
-		REG_SCFG_EXT = 0x8207F100;
+	if (!TWLCLK)REG_SCFG_CLK = 0x80;
+	if (TWLMODE) {
+		REG_SCFG_EXT = 0x82073100;
 		REG_SCFG_RST = 1;
-	} else {
-		// REG_SCFG_EXT = 0x8200C000;
-		REG_SCFG_EXT=0x82000000;
-		if (arm9_ExtendRam) {
-			REG_SCFG_EXT |= BIT(14);
-			REG_SCFG_EXT |= BIT(15);
-		}
-		// Extended VRAM Access
-		if (arm9_boostVram)REG_SCFG_EXT |= BIT(13);
-		// lock SCFG
-		if (!arm9_scfgUnlock)REG_SCFG_EXT &= ~(1UL << 31);
 	}
+	if (!TWLVRAM)REG_SCFG_EXT &= ~(1UL << 13);
+	if (!scfgUnlock)REG_SCFG_EXT &= ~(1UL << 31);
 	
-	// wait for vblank then boot
-	while(REG_VCOUNT!=191);
-	while(REG_VCOUNT==191);
-	
-	arm9code();
+	arm9_reset();
 }
 

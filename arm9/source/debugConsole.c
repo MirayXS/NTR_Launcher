@@ -16,22 +16,18 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef READ_CARD_H
-#define READ_CARD_H
+#include <nds.h>
 
-#include <nds/ndstypes.h>
-#include <nds/memory.h>
-#include <stdlib.h>
+bool ConsoleInit = false;
 
-#define CARD_NDS_HEADER_SIZE (0x200)
-#define CARD_SECURE_AREA_OFFSET (0x4000)
-#define CARD_SECURE_AREA_SIZE (0x4000)
-#define CARD_DATA_OFFSET (0x8000)
-#define CARD_DATA_BLOCK_SIZE (0x200)
-
-int cardInit (tNDSHeader* ndsHeader, u32* chipID);
-
-void cardRead (u32 src, u32* dest, size_t size);
-
-#endif // READ_CARD_H
+void InitConsole() {
+	ConsoleInit = true;
+	// Enable console
+	videoSetModeSub(MODE_0_2D | DISPLAY_BG0_ACTIVE);
+	vramSetBankC(VRAM_C_SUB_BG_0x06200000);
+	REG_BG0CNT_SUB = BG_MAP_BASE(4) | BG_COLOR_16 | BG_TILE_BASE(6) | BG_PRIORITY(0);
+	consoleInit(NULL, 0, BgType_Text4bpp, BgSize_T_256x256, 4, 6, false, true);
+	BG_PALETTE_SUB[0] = RGB15(31,31,31);
+	BG_PALETTE_SUB[255] = RGB15(0,0,0);
+}
 

@@ -1,3 +1,5 @@
+*.cmd
+*.app
 *.exe
 *.cia
 *.nds
@@ -9,6 +11,7 @@ Thumbs.db
 *.elf
 *.d
 *.map
+title/
 arm9/data/
 arm7/build
 arm9/build/

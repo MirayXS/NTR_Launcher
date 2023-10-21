@@ -5,7 +5,8 @@ ENTRY(_start)
 MEMORY {
 
 	vram	: ORIGIN = 0x06020000, LENGTH = 128K
-	arm9ram	: ORIGIN = 0x023FE000, LENGTH = 8K		/* Used for the ARM9's functions */
+	/* arm9ram	: ORIGIN = 0x026FD800, LENGTH = 4K		Used for the ARM9's functions */
+	arm9ram	: ORIGIN = 0x027FC800, LENGTH = 4K		/* Used for the ARM9's functions */
 }
 
 __vram_start	=	ORIGIN(vram);
@@ -15,15 +16,17 @@ __sp_svc	=	__sp_irq - 0x100;
 __sp_usr	=	__sp_svc - 0x100;
 
 __irq_flags	=	__vram_top - 8;
-__irq_flagsaux	=	__vram_top - 0x40; /*__irq_flagsaux	=	0x04000000 - 0x40;*/
+__irq_flagsaux	=	__vram_top - 0x40;
 __irq_vector	=	__vram_top - 4;
 
 
 __arm9ram_start	=	ORIGIN(arm9ram);
 __arm9ram_top	=	ORIGIN(arm9ram)+ LENGTH(arm9ram);
-__arm9_sp_irq	=	__arm9ram_top - 0x60;
-__arm9_sp_svc	=	__arm9_sp_irq - 0x100;
-__arm9_sp_usr	=	__arm9_sp_svc - 0x100;
+
+/* No IRQs or SVC calls in ARM9 boot code so give them minimal stacks */
+__arm9_sp_irq	=	__arm9ram_top;
+__arm9_sp_svc	=	__arm9_sp_irq - 0x10;
+__arm9_sp_usr	=	__arm9_sp_svc - 0x10;
 
 
 SECTIONS

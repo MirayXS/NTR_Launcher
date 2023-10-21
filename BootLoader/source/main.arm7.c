@@ -1,9 +1,9 @@
 /*
  main.arm7.c
- 
+
  By Michael Chisholm (Chishm)
- 
- All resetMemory and startBinary functions are based 
+
+ All resetMemory and startBinary functions are based
  on the MultiNDS loader by Darkain.
  Original source available at:
  http://cvs.sourceforge.net/viewcvs.py/ndslib/ndslib/examples/loader/boot/main.cpp
@@ -30,237 +30,60 @@
 # define ARM7
 #endif
 #include <nds/ndstypes.h>
-#include <nds/arm7/codec.h>
 #include <nds/system.h>
 #include <nds/interrupts.h>
 #include <nds/timers.h>
 #include <nds/dma.h>
 #include <nds/arm7/audio.h>
+#include <nds/arm7/codec.h>
+#include <nds/memory.h>
 #include <nds/ipc.h>
 #include <string.h>
-
-// #include <nds/registers_alt.h>
-// #include <nds/memory.h>
-// #include <nds/card.h>
-// #include <stdio.h>
 
 #ifndef NULL
 #define NULL 0
 #endif
 
 #include "common.h"
-#include "tonccpy.h"
 #include "read_card.h"
-#include "module_params.h"
-// #include "cardengine_arm7_bin.h"
-// #include "hook.h"
-#include "find.h"
+#include "tonccpy.h"
+/*-------------------------------------------------------------------------
+External functions
+--------------------------------------------------------------------------*/
+extern void arm7_clearmem (void* loc, size_t len);
+extern void arm7_reset (void);
 
+static int language = -1;
+static bool scfgUnlock = false;
+static bool twlMode = false;
+static bool twlCLK = false;
+static bool debugMode = false;
 
-extern u32 dsiMode;
-extern u32 language;
-extern u32 sdAccess;
-extern u32 scfgUnlock;
-extern u32 twlMode;
-extern u32 twlClock;
-extern u32 boostVram;
-extern u32 soundFreq;
-extern u32 extendRam;
-extern u32 debugMode;
+static bool useTwlCfg = false;
+static int twlCfgLang = 0;
 
-bool useTwlCfg = false;
-int twlCfgLang = 0;
-
-// bool gameSoftReset = false;
-
-void arm7_clearmem (void* loc, size_t len);
-extern void ensureBinaryDecompressed(const tNDSHeader* ndsHeader, module_params_t* moduleParams);
-
-// static const u32 cheatDataEndSignature[2] = {0xCF000000, 0x00000000};
-
-// Module params
-static const u32 moduleParamsSignature[2] = {0xDEC00621, 0x2106C0DE};
-
-static u32 chipID;
-
-static module_params_t* moduleParams;
-
-u32* findModuleParamsOffset(const tNDSHeader* ndsHeader) {
-	//dbg_printf("findModuleParamsOffset:\n");
-
-	u32* moduleParamsOffset = findOffset(
-			(u32*)ndsHeader->arm9destination, ndsHeader->arm9binarySize,
-			moduleParamsSignature, 2
-		);
-	return moduleParamsOffset;
-}
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Important things
-#define NDS_HEADER         0x027FFE00
-#define NDS_HEADER_SDK5    0x02FFFE00 // __NDSHeader
-#define NDS_HEADER_POKEMON 0x027FF000
+#define NDS_HEADER			0x027FFE00
+#define NDS_HEADER_POKEMON	0x027FF000
+#define TWL_HEADER			0x027FE000
+#define TMP_HEADER			0x027FC000
+tNDSHeader* ndsHeader;
+tNDSHeader* tmpHeader;
 
-#define DSI_HEADER         0x027FE000
-#define DSI_HEADER_SDK5    0x02FFE000 // __DSiHeader
+#define REG_GPIO_WIFI *(vu16*)0x4004C04
 
-// #define ENGINE_LOCATION_ARM7  	0x037C0000
+static u32 chipID;
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// Used for debugging purposes
-/*static void errorOutput (u32 code) {
-	// Wait until the ARM9 is ready
-	while (arm9_stateFlag != ARM9_READY);
-	// Set the error code, then tell ARM9 to display it
-	arm9_errorCode = code;
-	arm9_errorClearBG = true;
-	arm9_stateFlag = ARM9_DISPERR;
-	// Stop
-	while(1);
-}*/
-
-
-static void debugOutput (u32 code) {
-	// Wait until the ARM9 is ready
-	while (arm9_stateFlag != ARM9_READY);
-	// Set the error code, then tell ARM9 to display it
-	arm9_errorCode = code;	
-	arm9_errorClearBG = debugMode;
-	arm9_stateFlag = ARM9_DISPERR;
-	// Wait for completion	
-	while (arm9_stateFlag != ARM9_READY);
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// Firmware stuff
-
-static void my_readUserSettings(tNDSHeader* ndsHeader) {
-	PERSONAL_DATA slot1;
-	PERSONAL_DATA slot2;
-
-	short slot1count, slot2count; //u8
-	short slot1CRC, slot2CRC;
-
-	u32 userSettingsBase;
-
-	// Get settings location
-	readFirmware(0x20, &userSettingsBase, 2);
-
-	u32 slot1Address = userSettingsBase * 8;
-	u32 slot2Address = userSettingsBase * 8 + 0x100;
-
-	// Reload DS Firmware settings
-	readFirmware(slot1Address, &slot1, sizeof(PERSONAL_DATA)); //readFirmware(slot1Address, personalData, 0x70);
-	readFirmware(slot2Address, &slot2, sizeof(PERSONAL_DATA)); //readFirmware(slot2Address, personalData, 0x70);
-	readFirmware(slot1Address + 0x70, &slot1count, 2); //readFirmware(slot1Address + 0x70, &slot1count, 1);
-	readFirmware(slot2Address + 0x70, &slot2count, 2); //readFirmware(slot1Address + 0x70, &slot2count, 1);
-	readFirmware(slot1Address + 0x72, &slot1CRC, 2);
-	readFirmware(slot2Address + 0x72, &slot2CRC, 2);
-
-	// Default to slot 1 user settings
-	void *currentSettings = &slot1;
-
-	short calc1CRC = swiCRC16(0xFFFF, &slot1, sizeof(PERSONAL_DATA));
-	short calc2CRC = swiCRC16(0xFFFF, &slot2, sizeof(PERSONAL_DATA));
-
-	// Bail out if neither slot is valid
-	if (calc1CRC != slot1CRC && calc2CRC != slot2CRC) { return; }
-
-	// If both slots are valid pick the most recent
-	if (calc1CRC == slot1CRC && calc2CRC == slot2CRC) { 
-		currentSettings = (slot2count == ((slot1count + 1) & 0x7f) ? &slot2 : &slot1); //if ((slot1count & 0x7F) == ((slot2count + 1) & 0x7F)) {
-	} else {
-		if (calc2CRC == slot2CRC) { currentSettings = &slot2; }
+static tNDSHeader* loadHeader(tDSiHeader* twlHeaderTemp) {
+	tNDSHeader* ntrHeader = (tNDSHeader*)NDS_HEADER;
+	*ntrHeader = twlHeaderTemp->ndshdr;
+	if (ntrHeader->unitCode > 0) {
+		tDSiHeader* dsiHeader = (tDSiHeader*)TWL_HEADER; // __DSiHeader
+		*dsiHeader = *twlHeaderTemp;
 	}
-
-	PERSONAL_DATA* personalData = (PERSONAL_DATA*)((u32)__NDSHeader - (u32)ndsHeader + (u32)PersonalData); //(u8*)((u32)ndsHeader - 0x180)
-
-	tonccpy(PersonalData, currentSettings, sizeof(PERSONAL_DATA));
-
-	if (useTwlCfg && (language == 0xFF || language == -1)) { language = twlCfgLang; }
-
-	if (language >= 0 && language <= 7) {
-		// Change language
-		personalData->language = language; //*(u8*)((u32)ndsHeader - 0x11C) = language;
-	}
-
-	if (personalData->language != 6 && ndsHeader->reserved1[8] == 0x80) {
-		ndsHeader->reserved1[8] = 0;	// Patch iQue game to be region-free
-		ndsHeader->headerCRC16 = swiCRC16(0xFFFF, ndsHeader, 0x15E);	// Fix CRC
-	}
-}
-
-void memset_addrs_arm7(u32 start, u32 end) { toncset((u32*)start, 0, ((int)end - (int)start)); }
-
-/*-------------------------------------------------------------------------
-arm7_resetMemory
-Clears all of the NDS's RAM that is visible to the ARM7
-Written by Darkain.
-Modified by Chishm:
- * Added STMIA clear mem loop
---------------------------------------------------------------------------*/
-void arm7_resetMemory (void) {
-	int i, reg;
-
-	REG_IME = 0;
-
-	for (i=0; i<16; i++) {
-		SCHANNEL_CR(i) = 0;
-		SCHANNEL_TIMER(i) = 0;
-		SCHANNEL_SOURCE(i) = 0;
-		SCHANNEL_LENGTH(i) = 0;
-	}
-	REG_SOUNDCNT = 0;
-
-	// Clear out ARM7 DMA channels and timers
-	for (i=0; i<4; i++) {
-		DMA_CR(i) = 0;
-		DMA_SRC(i) = 0;
-		DMA_DEST(i) = 0;
-		TIMER_CR(i) = 0;
-		TIMER_DATA(i) = 0;
-		for(reg=0; reg<0x1c; reg+=4)*((u32*)(0x04004104 + ((i*0x1c)+reg))) = 0; //Reset NDMA.
-	}
-
-	// Clear out FIFO
-	REG_IPC_SYNC = 0;
-	REG_IPC_FIFO_CR = IPC_FIFO_ENABLE | IPC_FIFO_SEND_CLEAR;
-	REG_IPC_FIFO_CR = 0;
-
-	// clear IWRAM - 037F:8000 to 0380:FFFF, total 96KiB
-	toncset ((void*)0x037F8000, 0, 96*1024);
-	// arm7_clearmem ((void*)0x037F8000, 96*1024);
-	
-	memset_addrs_arm7(0x03000000, 0x0380FFC0);
-	memset_addrs_arm7(0x0380FFD0, 0x03800000 + 0x10000);
-	
-	// clear most of EXRAM - except before 0x023F0000, which has the cheat data
-	toncset ((void*)0x02004000, 0, 0x3EC000);
-	
-	
-	// clear more of EXRAM, skipping the cheat data section
-	toncset ((void*)0x023F8000, 0, 0x6000);
-	
-
-	// clear last part of EXRAM
-	toncset ((void*)0x02400000, 0, 0xC00000);
-	
-
-	REG_IE = 0;
-	REG_IF = ~0;
-	REG_AUXIE = 0;
-	REG_AUXIF = ~0;
-	(*(vu32*)(0x04000000-4)) = 0;  //IRQ_HANDLER ARM7 version
-	(*(vu32*)(0x04000000-8)) = ~0; //VBLANK_INTR_WAIT_FLAGS, ARM7 version
-	REG_POWERCNT = 1;  //turn off power to stuffs
-
-	// useTwlCfg = (dsiMode && (*(u8*)0x02000400 & 0x0F) && (*(u8*)0x02000404 == 0));
-	useTwlCfg = (dsiMode && (*(u8*)0x02000400 & 0x0F) && (*(u8*)0x02000401 == 0) && (*(u8*)0x02000402 == 0) && (*(u8*)0x02000404 == 0));
-	twlCfgLang = *(u8*)0x02000406;
-
-	// Load FW header 
-	//arm7_readFirmware((u32)0x000000, (u8*)0x027FF830, 0x20);
-	//readFirmware((u32)0x000000, (u8*)0x027FF830, 0x20);
+	return ntrHeader;
 }
 
 static void NDSTouchscreenMode(void) {
@@ -494,28 +317,189 @@ static void NDSTouchscreenMode(void) {
 	writePowerManagement(PM_CONTROL_REG, 0x0D); //*(unsigned char*)0x40001C2 = 0x00, 0x0D; // PWR[0]=0Dh    ;<-- also part of TSC !
 }
 
-// SDK 5
-static bool ROMsupportsDSiMode(const tNDSHeader* ndsHeader) { return (ndsHeader->unitCode > 0); }
+const char* getRomTid(const tNDSHeader* ndsHeader) {
+	static char romTid[5];
+	strncpy(romTid, ndsHeader->gameCode, 4);
+	romTid[4] = '\0';
+	return romTid;
+}
 
-// SDK 5
-static bool ROMisDSiEnhanced(const tNDSHeader* ndsHeader) { return (ndsHeader->unitCode == 0x02); }
+static void errorOutput (u32 code, bool isError) {
+	arm9_errorCode = code;
+	if (isError) { 
+		ipcSendState(ARM7_ERR);
+		while(1); // Stop
+	}
+}
 
-// SDK 5
-static bool ROMisDSiExclusive(const tNDSHeader* ndsHeader) { return (ndsHeader->unitCode == 0x03); }
+static void arm7_readFirmware(tNDSHeader* ndsHeader) {
+	PERSONAL_DATA slot1;
+	PERSONAL_DATA slot2;
 
-int arm7_loadBinary (const tDSiHeader* dsiHeaderTemp) {
-	u32 errorCode;
+	short slot1count, slot2count; //u8
+	short slot1CRC, slot2CRC;
+
+	u32 userSettingsBase;
+
+	// Get settings location
+	readFirmware(0x20, &userSettingsBase, 2);
+
+	u32 slot1Address = userSettingsBase * 8;
+	u32 slot2Address = userSettingsBase * 8 + 0x100;
+
+	// Reload DS Firmware settings
+	readFirmware(slot1Address, &slot1, sizeof(PERSONAL_DATA)); //readFirmware(slot1Address, personalData, 0x70);
+	readFirmware(slot2Address, &slot2, sizeof(PERSONAL_DATA)); //readFirmware(slot2Address, personalData, 0x70);
+	readFirmware(slot1Address + 0x70, &slot1count, 2); //readFirmware(slot1Address + 0x70, &slot1count, 1);
+	readFirmware(slot2Address + 0x70, &slot2count, 2); //readFirmware(slot1Address + 0x70, &slot2count, 1);
+	readFirmware(slot1Address + 0x72, &slot1CRC, 2);
+	readFirmware(slot2Address + 0x72, &slot2CRC, 2);
+
+	// Default to slot 1 user settings
+	void *currentSettings = &slot1;
+
+	short calc1CRC = swiCRC16(0xFFFF, &slot1, sizeof(PERSONAL_DATA));
+	short calc2CRC = swiCRC16(0xFFFF, &slot2, sizeof(PERSONAL_DATA));
+
+	// Bail out if neither slot is valid
+	if (calc1CRC != slot1CRC && calc2CRC != slot2CRC) { return; }
+
+	// If both slots are valid pick the most recent
+	if (calc1CRC == slot1CRC && calc2CRC == slot2CRC) { 
+		currentSettings = (slot2count == ((slot1count + 1) & 0x7f) ? &slot2 : &slot1); //if ((slot1count & 0x7F) == ((slot2count + 1) & 0x7F)) {
+	} else {
+		if (calc2CRC == slot2CRC) { currentSettings = &slot2; }
+	}
+
+	PERSONAL_DATA* personalData = (PERSONAL_DATA*)((u32)__NDSHeader - (u32)ndsHeader + (u32)PersonalData); //(u8*)((u32)ndsHeader - 0x180)
+
+	tonccpy(PersonalData, currentSettings, sizeof(PERSONAL_DATA));
+
+	if (useTwlCfg && (language == 0xFF || language == -1)) { language = twlCfgLang; }
+
+	if (language >= 0 && language <= 7) {
+		// Change language
+		personalData->language = language; //*(u8*)((u32)ndsHeader - 0x11C) = language;
+	}
+
+	if (personalData->language != 6 && ndsHeader->reserved1[8] == 0x80) {
+		ndsHeader->reserved1[8] = 0;	// Patch iQue game to be region-free
+		ndsHeader->headerCRC16 = swiCRC16(0xFFFF, ndsHeader, 0x15E);	// Fix CRC
+	}
+}
+
+static void arm7_resetMemory (void) {
+	int i, reg;
+
+	REG_IME = 0;
+
+	for (i=0; i<16; i++) {
+		SCHANNEL_CR(i) = 0;
+		SCHANNEL_TIMER(i) = 0;
+		SCHANNEL_SOURCE(i) = 0;
+		SCHANNEL_LENGTH(i) = 0;
+	}
+	REG_SOUNDCNT = 0;
+
+	// Clear out ARM7 DMA channels and timers
+	for (i=0; i<4; i++) {
+		DMA_CR(i) = 0;
+		DMA_SRC(i) = 0;
+		DMA_DEST(i) = 0;
+		TIMER_CR(i) = 0;
+		TIMER_DATA(i) = 0;
+		for(reg=0; reg<0x1c; reg+=4)*((u32*)(0x04004104 + ((i*0x1c)+reg))) = 0; //Reset NDMA.
+	}
+
+	// Clear out FIFO
+	REG_IPC_SYNC = 0;
+	REG_IPC_FIFO_CR = IPC_FIFO_ENABLE | IPC_FIFO_SEND_CLEAR;
+	REG_IPC_FIFO_CR = 0;
+
+	// clear IWRAM - 037F:8000 to 0380:FFFF, total 96KiB
+	arm7_clearmem ((void*)0x037F8000, 96*1024);
+
+	// clear most of EXRAM - except after 0x022FD800, which has the ARM9 code
+	arm7_clearmem ((void*)0x02000000, 0x002FD800);
+
+	// clear last part of EXRAM, skipping the ARM9's section
+	arm7_clearmem ((void*)0x023FE000, 0x2000);
 	
-	// Init card
-	errorCode = cardInit((sNDSHeaderExt*)dsiHeaderTemp, &chipID);
-	if (errorCode) { return errorCode; }
+	// Clear tmp header region previously used by custom struct
+	arm7_clearmem ((void*)TMP_HEADER, 0x160);
 
+	REG_IE = 0;
+	REG_IF = ~0;
+	REG_AUXIE = 0;
+	REG_AUXIF = ~0;
+	
+	(*(vu32*)(0x04000000-4)) = 0;  //IRQ_HANDLER ARM7 version
+	(*(vu32*)(0x04000000-8)) = ~0; //VBLANK_INTR_WAIT_FLAGS, ARM7 version
+}
+
+static void setMemoryAddress(const tNDSHeader* ndsHeader) {
+	if (ndsHeader->unitCode > 0) {
+		copyLoop((u32*)0x027FFA80, (u32*)ndsHeader, 0x160);	// Make a duplicate of DS header
+
+		*(u32*)(0x027FA680) = 0x02FD4D80;
+		*(u32*)(0x027FA684) = 0x00000000;
+		*(u32*)(0x027FA688) = 0x00001980;
+
+		*(u32*)(0x027FF00C) = 0x0000007F;
+		*(u32*)(0x027FF010) = 0x550E25B8;
+		*(u32*)(0x027FF014) = 0x02FF4000;
+
+		// Set region flag
+		if (strncmp(getRomTid(ndsHeader)+3, "J", 1) == 0) {
+			*(u8*)(0x027FFD70) = 0;
+		} else if (strncmp(getRomTid(ndsHeader)+3, "E", 1) == 0) {
+			*(u8*)(0x027FFD70) = 1;
+		} else if (strncmp(getRomTid(ndsHeader)+3, "P", 1) == 0) {
+			*(u8*)(0x027FFD70) = 2;
+		} else if (strncmp(getRomTid(ndsHeader)+3, "U", 1) == 0) {
+			*(u8*)(0x027FFD70) = 3;
+		} else if (strncmp(getRomTid(ndsHeader)+3, "C", 1) == 0) {
+			*(u8*)(0x027FFD70) = 4;
+		} else if (strncmp(getRomTid(ndsHeader)+3, "K", 1) == 0) {
+			*(u8*)(0x027FFD70) = 5;
+		}
+	}
+	
+    // Set memory values expected by loaded NDS
+    // from NitroHax, thanks to Chism
+	*((u32*)0x027FF800) = chipID;					// CurrentCardID
+	*((u32*)0x027FF804) = chipID;					// Command10CardID
+	*((u16*)0x027FF808) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
+	*((u16*)0x027FF80A) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
+	*((u16*)0x027FF850) = 0x5835;
+	// Copies of above
+	*((u32*)0x027FFC00) = chipID;					// CurrentCardID
+	*((u32*)0x027FFC04) = chipID;					// Command10CardID
+	*((u16*)0x027FFC08) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
+	*((u16*)0x027FFC0A) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
+	*((u16*)0x027FFC10) = 0x5835;
+	*((u16*)0x027FFC40) = 0x01;						// Boot Indicator -- EXTREMELY IMPORTANT!!! Thanks to cReDiAr
+}
+
+static u32 arm7_loadBinary (void) {
+	u32 errorCode;
+		
+	tDSiHeader* twlHeaderTemp = (tDSiHeader*)TMP_HEADER; // Use same region cheat engine goes. Cheat engine will replace this later when it's not needed.
+
+	// Init card
+	errorCode = cardInit((sNDSHeaderExt*)twlHeaderTemp, &chipID);
+	if (errorCode)return errorCode;
+
+	ndsHeader = loadHeader(twlHeaderTemp); // copy twlHeaderTemp to ndsHeader location
+	
+	cardRead(ndsHeader->arm9romOffset, (u32*)ndsHeader->arm9destination, ndsHeader->arm9binarySize);
+	cardRead(ndsHeader->arm7romOffset, (u32*)ndsHeader->arm7destination, ndsHeader->arm7binarySize);
+	
 	// Fix Pokemon games needing header data.
-	tonccpy((u32*)NDS_HEADER_POKEMON, (u32*)NDS_HEADER, 0x170);
+	copyLoop((u32*)NDS_HEADER_POKEMON, (u32*)NDS_HEADER, 0x170);
 
 	char* romTid = (char*)NDS_HEADER_POKEMON+0xC;
-	if (
-		memcmp(romTid, "ADA", 3) == 0    // Diamond
+	if (   memcpy(romTid, "ADA", 3) == 0 // Diamond
 		|| memcmp(romTid, "APA", 3) == 0 // Pearl
 		|| memcmp(romTid, "CPU", 3) == 0 // Platinum
 		|| memcmp(romTid, "IPK", 3) == 0 // HG
@@ -523,85 +507,37 @@ int arm7_loadBinary (const tDSiHeader* dsiHeaderTemp) {
 	) {
 		// Make the Pokemon game code ADAJ.
 		const char gameCodePokemon[] = { 'A', 'D', 'A', 'J' };
-		tonccpy((char*)NDS_HEADER_POKEMON+0xC, gameCodePokemon, 4);
+		memcpy((char*)NDS_HEADER_POKEMON+0xC, gameCodePokemon, 4);
 	}
-
-	cardRead(dsiHeaderTemp->ndshdr.arm9romOffset, (u32*)dsiHeaderTemp->ndshdr.arm9destination, dsiHeaderTemp->ndshdr.arm9binarySize);
-	cardRead(dsiHeaderTemp->ndshdr.arm7romOffset, (u32*)dsiHeaderTemp->ndshdr.arm7destination, dsiHeaderTemp->ndshdr.arm7binarySize);
-
-	moduleParams = (module_params_t*)findModuleParamsOffset(&dsiHeaderTemp->ndshdr);
-
+	
 	return ERR_NONE;
 }
 
-static tNDSHeader* loadHeader(tDSiHeader* dsiHeaderTemp) {
-	tNDSHeader* ndsHeader = (tNDSHeader*)(isSdk5(moduleParams) ? NDS_HEADER_SDK5 : NDS_HEADER);
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Main function
+void arm7_main (void) {
 
-	*ndsHeader = dsiHeaderTemp->ndshdr;
+	u32 errorCode;
+	
+	if (language != 0xFF)language = (int)tmpData->language;
+	if (tmpData->scfgUnlock > 0x00)scfgUnlock = true;
+	if (tmpData->twlMode > 0x00)twlMode = true;
+	if (tmpData->twlCLK > 0x00)twlCLK = true;
+	if (tmpData->debugMode > 0x00)debugMode = true;
+	
+	// Synchronise start
+	while (ipcRecvState() != ARM9_START);
+	ipcSendState(ARM7_START);
+
+	// Wait until ARM9 is ready
+	while (ipcRecvState() != ARM9_READY);
 	
 	if (twlMode) {
-		tDSiHeader* dsiHeader = (tDSiHeader*)(isSdk5(moduleParams) ? DSI_HEADER_SDK5 : DSI_HEADER); // __DSiHeader
-		*dsiHeader = *dsiHeaderTemp;
-	}
-
-	return ndsHeader;
-}
-
-/*-------------------------------------------------------------------------
-arm7_startBinary
-Jumps to the ARM7 NDS binary in sync with the display and ARM9
-Written by Darkain, modified by Chishm.
---------------------------------------------------------------------------*/
-void arm7_startBinary (void) {
-	REG_IME = 0;
-	
-	// Get the ARM9 to boot
-	arm9_stateFlag = ARM9_BOOTBIN;
-
-	while(REG_VCOUNT!=191);
-	while(REG_VCOUNT==191);
-
-	// Start ARM7
-	VoidFn arm7code = (VoidFn)ndsHeader->arm7executeAddress;
-	
-	arm7code();
-}
-
-
-void initMBK() {
-	
-	if (twlMode) {
-		// give all DSI WRAM to arm7 at boot
-		// this function have no effect with ARM7 SCFG locked
-	
-		// arm7 is master of WRAM-A, arm9 of WRAM-B & C
-		// REG_MBK9=0x0300000F; // Disabled. This write is redundent. Already set as result of MBK settings in DSi Extended header of NTR_Launcher's SRL
-	
-		// WRAM-A fully mapped to arm7
-		// *((vu32*)REG_MBK1)=0x8185898D; // same as dsiware
-	
-		// WRAM-B fully mapped to arm7 // inverted order
-		// *((vu32*)REG_MBK2)=0x9195999D;
-		// *((vu32*)REG_MBK3)=0x8185898D;
-	
-		// WRAM-C fully mapped to arm7 // inverted order
-		// *((vu32*)REG_MBK4)=0x9195999D;
-		// *((vu32*)REG_MBK5)=0x8185898D;
-	
-		// WRAM mapped to the 0x3700000 - 0x37FFFFF area 
-		// WRAM-A mapped to the 0x37C0000 - 0x37FFFFF area : 256k
-		// REG_MBK6=0x080037C0; // same as dsiware
-		// WRAM-B mapped to the 0x3740000 - 0x37BFFFF area : 512k // why? only 256k real memory is there
-		// REG_MBK7=0x07C03740; // same as dsiware
-		// WRAM-C mapped to the 0x3700000 - 0x373FFFF area : 256k
-		// REG_MBK8=0x07403700; // same as dsiware
-		
 		*((vu32*)REG_MBK1)=0x8D898581;
 		*((vu32*)REG_MBK2)=0x8C888480;
 		*((vu32*)REG_MBK3)=0x9C989490;
 		*((vu32*)REG_MBK4)=0x8C888480;
 		*((vu32*)REG_MBK5)=0x9C989490;
-	
 		REG_MBK6=0x080037C0;
 		REG_MBK7=0x07C03740;
 		REG_MBK8=0x07403700;		
@@ -611,222 +547,60 @@ void initMBK() {
 		*((vu32*)REG_MBK3)=0x9C989490;
 		*((vu32*)REG_MBK4)=0x8C888480;
 		*((vu32*)REG_MBK5)=0x9C989490;
-		
 		REG_MBK6=0x09403900;
 		REG_MBK7=0x09803940;
 		REG_MBK8=0x09C03980;
 		REG_MBK9=0xFCFFFF0F;
 	}
-}
 
+	errorOutput(ERR_STS_CLR_MEM, false);
 
-/*void fixFlashcardForDSiMode(void) {
-	if ((memcmp(ndsHeader->gameTitle, "PASS", 4) == 0)
-	&& (memcmp(ndsHeader->gameCode, "ASME", 4) == 0))		// CycloDS Evolution
-	{
-		*(u16*)(0x0200197A) = 0xDF02;	// LZ77UnCompReadByCallbackWrite16bit
-		*(u16*)(0x020409FA) = 0xDF02;	// LZ77UnCompReadByCallbackWrite16bit
-	}
-}*/
-
-void fixDSBrowser(void) {
-	extern void patchMpu(const tNDSHeader* ndsHeader, const module_params_t* moduleParams);
-	// patchMpu(ndsHeader, moduleParams);
-	
-	patchMpu((tNDSHeader*)NDS_HEADER, moduleParams);
-
-	toncset((char*)0x02400000, 0xFF, 0xC0);
-	*(u8*)0x024000B2 = 0;
-	*(u8*)0x024000B3 = 0;
-	*(u8*)0x024000B4 = 0;
-	*(u8*)0x024000B5 = 0x24;
-	*(u8*)0x024000B6 = 0x24;
-	*(u8*)0x024000B7 = 0x24;
-	*(u16*)0x024000BE = 0x7FFF;
-	*(u16*)0x024000CE = 0x7FFF;
-
-	// Opera RAM patch (ARM9)
-	*(u32*)0x02003D48 = 0x2400000;
-	*(u32*)0x02003D4C = 0x2400004;
-
-	*(u32*)0x02010FF0 = 0x2400000;
-	*(u32*)0x02010FF4 = 0x24000CE;
-
-	*(u32*)0x020112AC = 0x2400080;
-
-	*(u32*)0x020402BC = 0x24000C2;
-	*(u32*)0x020402C0 = 0x24000C0;
-	*(u32*)0x020402CC = 0x2FFFFFE;
-	*(u32*)0x020402D0 = 0x2800000;
-	*(u32*)0x020402D4 = 0x29FFFFF;
-	*(u32*)0x020402D8 = 0x2BFFFFF;
-	*(u32*)0x020402DC = 0x2FFFFFF;
-	*(u32*)0x020402E0 = 0xD7FFFFF;	// ???
-	toncset((char*)0x2800000, 0xFF, 0x800000);		// Fill fake MEP with FFs
-
-	// Opera RAM patch (ARM7)
-	*(u32*)0x0238C7BC = 0x2400000;
-	*(u32*)0x0238C7C0 = 0x24000CE;
-
-	//*(u32*)0x0238C950 = 0x2400000;
-}
-
-
-static void setMemoryAddress(const tNDSHeader* ndsHeader) {
-
-	if (ROMsupportsDSiMode(ndsHeader)) {
-	//	u8* deviceListAddr = (u8*)((u8*)0x02FFE1D4);
-	//	tonccpy(deviceListAddr, deviceList_bin, deviceList_bin_len);
-
-	//	const char *ndsPath = "nand:/dsiware.nds";
-	//	tonccpy(deviceListAddr+0x3C0, ndsPath, sizeof(ndsPath));
-
-		//tonccpy((u32*)0x02FFC000, (u32*)DSI_HEADER_SDK5, 0x1000);		// Make a duplicate of DSi header
-		tonccpy((u32*)0x02FFFA80, (u32*)NDS_HEADER_SDK5, 0x160);	// Make a duplicate of DS header
-
-		*(u32*)(0x02FFA680) = 0x02FD4D80;
-		*(u32*)(0x02FFA684) = 0x00000000;
-		*(u32*)(0x02FFA688) = 0x00001980;
-
-		*(u32*)(0x02FFF00C) = 0x0000007F;
-		*(u32*)(0x02FFF010) = 0x550E25B8;
-		*(u32*)(0x02FFF014) = 0x02FF4000;
-	}
-
-    // Set memory values expected by loaded NDS
-    // from NitroHax, thanks to Chism
-	*((u32*)(isSdk5(moduleParams) ? 0x02fff800 : 0x027ff800)) = chipID;					// CurrentCardID
-	*((u32*)(isSdk5(moduleParams) ? 0x02fff804 : 0x027ff804)) = chipID;					// Command10CardID
-	*((u16*)(isSdk5(moduleParams) ? 0x02fff808 : 0x027ff808)) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
-	*((u16*)(isSdk5(moduleParams) ? 0x02fff80a : 0x027ff80a)) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
-
-	// Copies of above
-	*((u32*)(isSdk5(moduleParams) ? 0x02fffc00 : 0x027ffc00)) = chipID;					// CurrentCardID
-	*((u32*)(isSdk5(moduleParams) ? 0x02fffc04 : 0x027ffc04)) = chipID;					// Command10CardID
-	*((u16*)(isSdk5(moduleParams) ? 0x02fffc08 : 0x027ffc08)) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
-	*((u16*)(isSdk5(moduleParams) ? 0x02fffc0a : 0x027ffc0a)) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
-
-	*((u16*)(isSdk5(moduleParams) ? 0x02fffc40 : 0x027ffc40)) = 0x1;						// Boot Indicator (Booted from card for SDK5) -- EXTREMELY IMPORTANT!!! Thanks to cReDiAr
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// Main function
-
-void arm7_main (void) {
-
-	initMBK();
-	
-	arm9_DebugMode = debugMode;
-	
-	int errorCode;
-	
-	// Wait for ARM9 to at least start
-	while (arm9_stateFlag < ARM9_START);
-
-	debugOutput (ERR_STS_CLR_MEM);
-	
+	ipcSendState(ARM7_MEMCLR);
+		
 	// Get ARM7 to clear RAM
-	arm7_resetMemory();	
+	arm7_resetMemory();
+	
+	tmpHeader = (tNDSHeader*)TMP_HEADER;
+	
+	if (!twlMode)REG_SCFG_ROM = 0x703;
 
-	debugOutput (ERR_STS_LOAD_BIN);
+	errorOutput(ERR_STS_LOAD_BIN, false);
 	
-	if (!twlMode) { REG_SCFG_ROM = 0x703; }
-	
-	tDSiHeader* dsiHeaderTemp = (tDSiHeader*)0x02FFC000;
+	ipcSendState(ARM7_LOADBIN);
 
 	// Load the NDS file
-	errorCode = arm7_loadBinary(dsiHeaderTemp);
-	if (errorCode) { debugOutput(errorCode); }
+	errorCode = arm7_loadBinary();
+	if (errorCode)errorOutput(errorCode, true);
 	
-	// Override some settings depending on if DSi Enhanced cart or DSi Exclusive cart is inserted
-	if (ROMisDSiEnhanced(&dsiHeaderTemp->ndshdr)) { extendRam = true; } // Required for TWL carts to boot properly. Disabled by default for NTR carts to allow WoodR4 to operate correctly.
+	errorOutput(ERR_STS_STARTBIN, false);
 	
-	if (ROMisDSiExclusive(&dsiHeaderTemp->ndshdr)) {
-		twlMode = true;
-		dsiMode = true;
-		// dsiModeConfirmed = true;
-		twlClock = true;
-		extendRam = true;
-		boostVram = true;
-	}	
-
-	/*if (dsiMode) {
-		if (twlMode == 2) {
-			dsiModeConfirmed = twlMode;
-		} else {
-			dsiModeConfirmed = twlMode && ROMsupportsDSiMode(&dsiHeaderTemp->ndshdr);
-		}
-	}*/
-
+	tonccpy((u32*)0x023FF000, (u32*)0x027FF000, 0x1000);
+	
+	arm7_readFirmware(ndsHeader); // Header has to be loaded first
+	
 	if (twlMode) {
-		if (dsiHeaderTemp->arm9ibinarySize > 0) {			
-			cardRead((u32)dsiHeaderTemp->arm9iromOffset, (u32*)dsiHeaderTemp->arm9idestination, dsiHeaderTemp->arm9ibinarySize);
+		REG_SCFG_EXT = 0x92FBFB06;
+	} else { 
+		if (cdcReadReg(CDC_SOUND, 0x22) == 0xF0) {
+			// Switch touch mode to NTR
+			*(u16*)0x4004700 = 0x800F;
+			NDSTouchscreenMode();
+			*(u16*)0x4000500 = 0x807F;
 		}
-		if (dsiHeaderTemp->arm7ibinarySize > 0) {
-			cardRead((u32)dsiHeaderTemp->arm7iromOffset, (u32*)dsiHeaderTemp->arm7idestination, dsiHeaderTemp->arm7ibinarySize);
-		}
+		REG_GPIO_WIFI |= BIT(8);	// Old NDS-Wifi mode
+		REG_SCFG_EXT = 0x92A00000;
 	}
 
-	ndsHeader = loadHeader(dsiHeaderTemp);
-
-	// if (*(u32*)(NDS_HEADER+0xC) == 0x50524255) { fixDSBrowser(); }
-	bool isDSBrowser = (memcmp(ndsHeader->gameCode, "UBRP", 4) == 0);
-	
-	bool arm9_extendedMemory = (twlMode || isDSBrowser);
-	
-	if (isDSBrowser) { arm9_ExtendRam = true; }
-	
-	if (!arm9_extendedMemory) { tonccpy((u32*)0x023FF000, (u32*)(isSdk5(moduleParams) ? 0x02FFF000 : 0x027FF000), 0x1000); }
-	
-	my_readUserSettings(ndsHeader); // Header has to be loaded first
-
-	if (!twlMode) {
-		NDSTouchscreenMode();
-		*(u16*)0x4000500 = 0x807F;
-	}
-	
-	if (isDSBrowser) { fixDSBrowser(); }
-	/*if ((*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x52544E	// Download Play ROMs
-	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x4D5341		// Super Mario 64 DS
-	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x434D41		// Mario Kart DS
-	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x443241		// New Super Mario Bros.
-	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x5A5241		// Rockman ZX/MegaMan ZX
-	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x574B41		// Kirby Squeak Squad/Mouse Attack
-	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x585A59		// Rockman ZX Advent/MegaMan ZX Advent
-	|| (*(u32*)(NDS_HEADER+0xC) & 0x00FFFFFF) == 0x5A3642)		// Rockman Zero Collection/MegaMan Zero Collection
-	{
-		gameSoftReset = true;
-	}*/
-	
-	toncset ((void*)0x023F0000, 0, 0x8000);		// Clear cheat data from main memory
-	
-	debugOutput (ERR_STS_START);
-	
-	arm9_dsiModeConfirmed = twlMode;
-	arm9_TWLClockSpeeds = twlClock;
-	arm9_boostVram = boostVram;
-	arm9_scfgUnlock = scfgUnlock;
-	arm9_ExtendRam = extendRam;
-	
-	if (twlClock) {
-		// if (!sdAccess) { REG_SCFG_CLK = 0x0186; } else { REG_SCFG_CLK = 0x0187; }
-		REG_SCFG_CLK = 0x0185;
-	} else {
-		// if (!sdAccess) { REG_SCFG_CLK = 0x0180; } else { REG_SCFG_CLK = 0x0181; }
-		REG_SCFG_CLK = 0x0101;
-	}
-	
-	if (twlMode) { REG_SCFG_EXT = 0x92FBFB06; } else { REG_SCFG_EXT = 0x92A00000; }
+	if (twlCLK) { REG_SCFG_CLK = 0x0185; } else { REG_SCFG_CLK = 0x0101; }
 	if (scfgUnlock) { REG_SCFG_EXT |= BIT(18); } else { REG_SCFG_EXT &= ~(1UL << 31); }
 	
-	while (arm9_stateFlag != ARM9_READY);
-	arm9_stateFlag = ARM9_SETSCFG;
-	while (arm9_stateFlag != ARM9_READY);
-		
 	setMemoryAddress(ndsHeader);
-	
-	arm7_startBinary();
 
-	while (1);
+	ipcSendState(ARM7_BOOTBIN);
+	
+	// Moved here to prevent interfering with arm9main's new console
+	REG_POWERCNT = 1;  //turn off power to stuffs
+	
+	arm7_reset();
 }
 

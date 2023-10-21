@@ -26,15 +26,7 @@ bool SCFGCLKCheck = false;
 
 void VcountHandler() { inputGetAndSend(); }
 
-void VblankHandler(void) {
-	if (!SCFGCLKCheck) { 
-		if (fifoCheckValue32(FIFO_USER_01)) {
-			SCFGCLKCheck = true;
-			REG_SCFG_CLK = 0x0180;
-			fifoSendValue32(FIFO_USER_02, 1);
-		}
-	}
- }
+void VblankHandler(void) { }
 
 int main(void) {
 	// read User Settings from firmware

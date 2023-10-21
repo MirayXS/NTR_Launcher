@@ -17,9 +17,9 @@
 */
 
 #include <nds.h>
-#include <fat.h>
+#include <nds/arm9/console.h>
 #include <nds/fifocommon.h>
-
+#include <fat.h>
 #include <stdio.h>
 #include <string.h>
 #include <malloc.h>
@@ -27,17 +27,17 @@
 
 #include "inifile.h"
 #include "bootsplash.h"
-#include "bootsplash2.h"
 #include "launch_engine.h"
 #include "crc.h"
 #include "tonccpy.h"
 #include "read_card.h"
+#include "debugConsole.h"
 
 sNDSHeaderExt ndsHeader;
 char gameTitle[13] = {0};
 char gameCode[7] = {0};
 
-const char* PROGVERSION = "2.6";
+const char* PROGVERSION = "2.7";
 
 off_t getFileSize(const char *fileName) {
     FILE* fp = fopen(fileName, "rb");
@@ -51,14 +51,18 @@ off_t getFileSize(const char *fileName) {
 	return fsize;
 }
 
+extern void InitConsole();
+
+extern bool ConsoleInit;
+
 void DisplayText(const char* text, bool clear = false, bool clearOnly = false){
-	if (clear | clearOnly) {
-		consoleClear();
+	if (!ConsoleInit)InitConsole();
+	if (clear || clearOnly)consoleClear();
+	if (!clearOnly) {
 		printf("--------------------------------\n");
 		printf("----[NTR Launcher Debug Mode]---\n");
-		printf("----------[Version: 2.6]--------\n");
+		printf("----------[Version: 2.7]--------\n");
 		printf("--------------------------------\n\n");
-		if (clearOnly) return;
 	}
 	printf(text);
 }
@@ -95,32 +99,30 @@ void ResetSlot1() {
 
 void DoSlotCheck(bool DebugMode) {
 	if (REG_SCFG_MC == 0x11) {
-		if (DebugMode) DisplayText("Please insert a cartridge...\n", true);
+		if(!ConsoleInit)InitConsole();
+		if(DebugMode) { 
+			DisplayText("Please insert a cartridge...\n", true, false);
+		} else {
+			DisplayText("\n\n\n\n\n\n\n\n\n\n\n  Please insert a cartridge...  ", true, true);
+		}
 		REDO:
 		swiWaitForVBlank();
-		do { 
-			if (!DebugMode) CartridgePrompt();
-		} while (REG_SCFG_MC != 0x10);
+		do { swiWaitForVBlank(); } while (REG_SCFG_MC != 0x10);
 		enableSlot1();
 		DoWait(60);
 		if (REG_SCFG_MC != 0x18) goto REDO;
-		// fifoSendValue32(FIFO_USER_02, 1);
+	} else if (REG_SCFG_MC == 0x10) {
+		enableSlot1();
 	}
 }
 
 int main() {
 	defaultExceptionHandler();
 	
-	// bool consoleInited = false;
 	bool scfgUnlock = false;
 	bool TWLMODE = false;
-	bool TWLEXTRAM = false;
 	bool TWLCLK = false;	// false == NTR, true == TWL
 	bool TWLVRAM = false;
-	bool soundFreq = false;
-	bool EnableSD = false;
-	// bool slot1Init = false;
-	bool LegacyMode = false;
 	
 	bool UseAnimatedSplash = false;
 	bool UseNTRSplash = true;
@@ -131,104 +133,62 @@ int main() {
 	bool DebugMode = false;
 		
 	if (fatInitDefault()) {
-		CIniFile ntrlauncher_config( "sd:/NDS/NTR_Launcher.ini" );
+		CIniFile ntrlauncher_config( "/NDS/NTR_Launcher.ini" );
 		
 		TWLCLK = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLCLOCK",0);
 		TWLVRAM = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLVRAM",0);
-		TWLEXTRAM = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLEXTRAM",0);
 		TWLMODE = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLMODE",0);
-		soundFreq = ntrlauncher_config.GetInt("NTRLAUNCHER","SOUNDFREQ",0);
-		// EnableSD = ntrlauncher_config.GetInt("NTRLAUNCHER","SDACCESS",0);
-		EnableSD = true;
 		scfgUnlock = ntrlauncher_config.GetInt("NTRLAUNCHER","SCFGUNLOCK",0);
-		// cardInit() does a slot reset anyways so this feature will be deprecated.
-		// slot1Init = ntrlauncher_config.GetInt("NTRLAUNCHER","RESETSLOT1",0);
 		UseAnimatedSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","ANIMATEDSPLASH",0);
 		UseNTRSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","NTRSPLASH",0);
 		HealthAndSafety_MSG = ntrlauncher_config.GetInt("NTRLAUNCHER","HEALTHSAFETYSPLASH",0);
 		
 		DebugMode = ntrlauncher_config.GetInt("NTRLAUNCHER","DEBUGMODE",0);
-		LegacyMode = ntrlauncher_config.GetInt("NTRLAUNCHER", "LEGACYMODE", 0);
 		language = ntrlauncher_config.GetInt("NTRLAUNCHER", "LANGUAGE", -1);
-		
-		/*if(slot1Init) {
-			ResetSlot1();
-		}*/
-	}/* else {
-		ResetSlot1();
-	}*/
+	}
 	
-	if (DebugMode) UseAnimatedSplash = false;
+	ConsoleInit = DebugMode;
 	
-	if (!UseAnimatedSplash) { 
-		BootSplashInit(DebugMode);
+	if (DebugMode)UseAnimatedSplash = false;
+	
+	if (!UseAnimatedSplash) {
+		if (DebugMode)InitConsole();
 		DoSlotCheck(DebugMode);
 	} else {
-		if (DebugMode) {
-			DoSlotCheck(DebugMode);
-		} else {
-			char *p = (char*)PersonalData->name;
-			for (int i = 0; i < 10; i++) {
-				if (p[i*2] == 0x00) {
-					p[i*2/2] = 0;
-				} else {
-					p[i*2/2] = p[i*2];
-				}
+		char *p = (char*)PersonalData->name;
+		for (int i = 0; i < 10; i++) {
+			if (p[i*2] == 0x00) {
+				p[i*2/2] = 0;
+			} else {
+				p[i*2/2] = p[i*2];
 			}
-			if (language == -1) language = (PersonalData->language);
-			BootSplashInit2(UseNTRSplash, HealthAndSafety_MSG, language, false);
 		}
+		if (language == -1) language = (PersonalData->language);
+		BootSplashInit(UseNTRSplash, HealthAndSafety_MSG, language, false);
 	}
 	
-	if (LegacyMode && !TWLCLK) { 
-		fifoSendValue32(FIFO_USER_01, 1); 
-		fifoWaitValue32(FIFO_USER_02);
-	}
-	DoWait();
 	sysSetCardOwner (BUS_OWNER_ARM9);
 	
 	DoCardInit(DebugMode);
 		
-	// Force disable Legacy Mode if a TWL cart is detected. Old cart loader doesn't support TWL carts.
-	if ((ndsHeader.unitCode == 0x03) | (ndsHeader.unitCode == 0x02)) { 
-		LegacyMode = false; 
-		// Force specific settings needed for proper support for retail TWL carts
-		if (ndsHeader.unitCode == 0x03) {
-			scfgUnlock = false;
-			TWLMODE = true;
-			TWLEXTRAM = true;
-			TWLCLK = true;	// false == NTR, true == TWL
-			TWLVRAM = true;
-			soundFreq = true;
-			if (!memcmp(gameCode, "DSYE", 4))LegacyMode = true;
-		} else {
-			TWLCLK = true;
-		}
-	} else if (!memcmp(gameCode, "ASMA", 4) | !memcmp(gameCode, "ACEK", 4) ) { 
-		//Original R4 doesn't like new bootloader
-		LegacyMode = true;
-		DoWait(60);
-	} else if (!memcmp(gameTitle, "D!S!XTREME", 9)) {
+	// Force specific settings needed for proper support for retail TWL carts
+	if (!memcmp(gameTitle, "D!S!XTREME", 9)) {
 		// DS-Xtreme does not like running in TWL clock speeds. (write function likely goes too fast and semi-bricks hidden sector region randomly)
 		TWLCLK = false;
-	};
+	}
 	
 	while(1) {
 		// If SCFG_MC is returning as zero/null, this means SCFG_EXT registers are locked on arm9 or user attempted to run this while in NTR mode.
 		if((REG_SCFG_MC == 0x00) | (REG_SCFG_MC == 0x11) | (REG_SCFG_MC == 0x10)) {
 			if (UseAnimatedSplash) {
-				BootSplashInit2(false, false, 0, true);
+				BootSplashInit(false, false, 0, true);
 			} else {
-				if (!DebugMode) {
-					ErrorScreen(DebugMode);
-				} else {
-					DisplayText("Error has occured.!\nEither card ejected late,\nor NTR mode detected!\nPress any button to exit...", true);
-				}
+				DisplayText("Error has occured.!\nEither card ejected late,\nor NTR mode detected!\nPress any button to exit...", true);
 				do { swiWaitForVBlank(); scanKeys(); } while (!keysDown());
 			}
 			break;
 		} else {
-			runLaunchEngine (LegacyMode, EnableSD, language, scfgUnlock, TWLMODE, TWLCLK, TWLVRAM, soundFreq, TWLEXTRAM, DebugMode);
+			runLaunchEngine(language, scfgUnlock, TWLMODE, TWLCLK, TWLVRAM, DebugMode);
 		}
 	}
 	return 0;

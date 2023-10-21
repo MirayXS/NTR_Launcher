@@ -133,4 +133,3 @@ mpu_initial_data:
 	.word 0x027ff017  @ p15,0,c6,c7,0,r9    ;PU Protection Unit Data/Unified Region 7 4KB
 	.word 0x0300000a  @ p15,0,c9,c1,0,r10   ;TCM Data TCM Base and Virtual Size
 itcm_reset_code_end:
-

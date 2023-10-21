@@ -18,3 +18,4 @@
 #include <nds/ndstypes.h>
 
 void readBios (u8* dest, u32 src, u32 size);
+

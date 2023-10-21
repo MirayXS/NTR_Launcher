@@ -128,18 +128,6 @@ $(ARM9ELF)	:	$(OFILES)
 #---------------------------------------------------------------------------------
 # graphics
 #---------------------------------------------------------------------------------
-topLoad.s			:	../$(IMAGES)/topLoad.bmp
-	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
-
-subLoad.s			:	../$(IMAGES)/subLoad.bmp
-	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
-
-subError.s			:	../$(IMAGES)/subError.bmp
-	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
-
-subPrompt.s			:	../$(IMAGES)/subPrompt.bmp
-	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
-	
 #Cartridge Wait Prompt (bottom screen)
 # English
 CartPrompt01.s			:	../$(IMAGES)/CartPrompt01.bmp
