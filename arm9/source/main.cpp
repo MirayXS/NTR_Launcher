@@ -55,16 +55,14 @@ extern void InitConsole();
 
 extern bool ConsoleInit;
 
-void DisplayText(const char* text, bool clear = false, bool clearOnly = false){
+void DisplayText(const char* text, bool clear = false, bool noText = false){
 	if (!ConsoleInit)InitConsole();
-	if (clear || clearOnly)consoleClear();
-	if (!clearOnly) {
-		printf("--------------------------------\n");
-		printf("----[NTR Launcher Debug Mode]---\n");
-		printf("----------[Version: 2.7]--------\n");
-		printf("--------------------------------\n\n");
-	}
-	printf(text);
+	if (clear)consoleClear();
+	printf("--------------------------------\n");
+	printf("----[NTR Launcher Debug Mode]---\n");
+	printf("----------[Version: 2.7]--------\n");
+	printf("--------------------------------\n\n");
+	if (!noText)printf(text);
 }
 
 void DoWait(int waitTime = 30){
@@ -73,7 +71,7 @@ void DoWait(int waitTime = 30){
 
 void DoCardInit(bool DebugMode) {
 	if (DebugMode){ 
-		DisplayText("CLEARONLY", true);
+		DisplayText("CLR", true, true);
 		DisplayText("Loading Cart details.\nPlease Wait...\n", true);
 	}
 	// Do cart init stuff to wake cart up. DLDI init may fail otherwise!
@@ -82,28 +80,29 @@ void DoCardInit(bool DebugMode) {
 	tonccpy(gameCode, ndsHeader.gameCode, 6);
 	DoWait(60);
 	if (DebugMode) {
-		DisplayText("CLEARONLY", true, true);
+		DisplayText("CLR", true, true);
 		iprintf("Detected Cart Name: %12s \n", gameTitle);
 		iprintf("Detected Cart Game ID: %6s \n\n", gameCode);
-		DisplayText("Press any button to continue...");
+		printf("Press any button to continue...");
 		do { swiWaitForVBlank(); scanKeys(); } while (!keysDown());
 	}
 }
 
-void ResetSlot1() {
-	if (REG_SCFG_MC == 0x11) return;
+/*void ResetSlot1() {
+	if (REG_SCFG_MC == 0x11)return;
 	disableSlot1();
 	DoWait();
 	enableSlot1();
-}
+}*/
 
 void DoSlotCheck(bool DebugMode) {
 	if (REG_SCFG_MC == 0x11) {
-		if(!ConsoleInit)InitConsole();
 		if(DebugMode) { 
-			DisplayText("Please insert a cartridge...\n", true, false);
+			DisplayText("Please insert a cartridge...\n", true);
 		} else {
-			DisplayText("\n\n\n\n\n\n\n\n\n\n\n  Please insert a cartridge...  ", true, true);
+			if (!ConsoleInit)InitConsole();
+			consoleClear();
+			printf("\n\n\n\n\n\n\n\n\n\n\n  Please insert a cartridge...  ");
 		}
 		REDO:
 		swiWaitForVBlank();
@@ -157,11 +156,7 @@ int main() {
 	} else {
 		char *p = (char*)PersonalData->name;
 		for (int i = 0; i < 10; i++) {
-			if (p[i*2] == 0x00) {
-				p[i*2/2] = 0;
-			} else {
-				p[i*2/2] = p[i*2];
-			}
+			if (p[i*2] == 0x00) { p[i*2/2] = 0; } else { p[i*2/2] = p[i*2]; }
 		}
 		if (language == -1) language = (PersonalData->language);
 		BootSplashInit(UseNTRSplash, HealthAndSafety_MSG, language, false);
@@ -179,7 +174,7 @@ int main() {
 	
 	while(1) {
 		// If SCFG_MC is returning as zero/null, this means SCFG_EXT registers are locked on arm9 or user attempted to run this while in NTR mode.
-		if((REG_SCFG_MC == 0x00) | (REG_SCFG_MC == 0x11) | (REG_SCFG_MC == 0x10)) {
+		if((REG_SCFG_MC == 0x00) || (REG_SCFG_MC == 0x11) || (REG_SCFG_MC == 0x10)) {
 			if (UseAnimatedSplash) {
 				BootSplashInit(false, false, 0, true);
 			} else {

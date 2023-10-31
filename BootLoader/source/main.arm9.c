@@ -167,16 +167,24 @@ void arm9_main (void) {
 	if (tmpData->debugMode == 0x01)debugMode = true;
 	
 	if (TWLMODE) {
+		*((vu32*)REG_MBK1)=0x8D898581;
+		*((vu32*)REG_MBK2)=0x8C888480;
+		*((vu32*)REG_MBK3)=0x9C989490;
+		*((vu32*)REG_MBK4)=0x8C888480;
+		*((vu32*)REG_MBK5)=0x9C989490;
 		REG_MBK6=0x00000000;
 		REG_MBK7=0x07C03740;
 		REG_MBK8=0x07403700;
-		REG_MBK9=0x0300000F;
 	} else {
 		// MBK settings for NTR mode games
-		REG_MBK6=0x00003000;
-		REG_MBK7=0x00003000;
-		REG_MBK8=0x00003000;
-		REG_MBK9=0xFCFFFF0F;
+		*((vu32*)REG_MBK1)=0x8D898581;
+		*((vu32*)REG_MBK2)=0x91898581;
+		*((vu32*)REG_MBK3)=0x91999591;
+		*((vu32*)REG_MBK4)=0x91898581;
+		*((vu32*)REG_MBK5)=0x91999591;
+		REG_MBK6 = 0x00003000;
+		REG_MBK7 = 0x00003000;
+		REG_MBK8 = 0x00003000;
 	}
 	
 	//set shared ram to ARM7
@@ -187,7 +195,6 @@ void arm9_main (void) {
 	REG_IME = 0;
 	REG_IE = 0;
 	REG_IF = ~0;
-	
 	
 	if (debugMode)arm9_errorCode = ERR_STS_START;
 

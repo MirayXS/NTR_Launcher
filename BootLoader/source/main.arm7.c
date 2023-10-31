@@ -533,24 +533,15 @@ void arm7_main (void) {
 	while (ipcRecvState() != ARM9_READY);
 	
 	if (twlMode) {
-		*((vu32*)REG_MBK1)=0x8D898581;
-		*((vu32*)REG_MBK2)=0x8C888480;
-		*((vu32*)REG_MBK3)=0x9C989490;
-		*((vu32*)REG_MBK4)=0x8C888480;
-		*((vu32*)REG_MBK5)=0x9C989490;
+		REG_MBK9=0x0300000F;
 		REG_MBK6=0x080037C0;
 		REG_MBK7=0x07C03740;
 		REG_MBK8=0x07403700;		
 	} else {
-		*((vu32*)REG_MBK1)=0x8D898581;
-		*((vu32*)REG_MBK2)=0x8C888480;
-		*((vu32*)REG_MBK3)=0x9C989490;
-		*((vu32*)REG_MBK4)=0x8C888480;
-		*((vu32*)REG_MBK5)=0x9C989490;
+		REG_MBK9=0xFCFFFF0F;
 		REG_MBK6=0x09403900;
 		REG_MBK7=0x09803940;
 		REG_MBK8=0x09C03980;
-		REG_MBK9=0xFCFFFF0F;
 	}
 
 	errorOutput(ERR_STS_CLR_MEM, false);

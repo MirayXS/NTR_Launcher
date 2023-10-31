@@ -100,7 +100,7 @@ arm9_reset:
 	@ while (ipcRecvState() != ARM7_BOOT);
 	bl	waitsync
 
-	ldr	r10, =0x2FFFE24
+	ldr	r10, =0x27FFE24
 	ldr	r2, [r10]
 
 	@ Switch MPU to startup default
