@@ -24,7 +24,7 @@
 extern bool cartSelected;
 
 void clearCartIcon(bool clearBannerText);
-void ToggleBackground(void);
+void ToggleBackground(bool noCart);
 void iconTitleInit (void);
 void iconTitleUpdate (int isdir, const std::string& name);
 void cartIconUpdate (u32 BannerOffset, bool readExistingBanner);

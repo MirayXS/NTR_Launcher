@@ -19,7 +19,7 @@ IMAGES		:=	graphics
 SOURCES		:=	source common hbmenu $(IMG_DATA)
 INCLUDES	:=	include common hbmenu
 DATA		:=	../data
-MUSIC       :=  music
+MUSIC       :=  audio
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -860,6 +860,9 @@ hbmenu_banner.s			:	../$(IMAGES)/hbmenu_banner.bmp
 	grit	$< -W3 -gT! -gzl -gB16 -o $@ -q
 
 hbmenu_banner_cartSelected.s	:	../$(IMAGES)/hbmenu_banner_cartSelected.bmp
+	grit	$< -W3 -gT! -gzl -gB16 -o $@ -q
+	
+hbmenu_banner_noCart.s	:	../$(IMAGES)/hbmenu_banner_noCart.bmp
 	grit	$< -W3 -gT! -gzl -gB16 -o $@ -q
 
 hbmenu_consolebg.s			:	../$(IMAGES)/hbmenu_consolebg.bmp

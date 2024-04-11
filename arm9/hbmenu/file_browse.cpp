@@ -34,10 +34,7 @@
 #include "hbmenu.h"
 #include "iconTitle.h"
 #include "read_card.h"
-
-#include <maxmod9.h>
-#include "soundbank.h"
-#include "soundbank_bin.h"
+#include "audio.h"
 
 #define SCREEN_COLS 30
 #define ENTRIES_PER_SCREEN 20
@@ -46,60 +43,13 @@
 
 using namespace std;
 
-static ALIGN(4) sNDSHeaderExt ntrHeader;
+ALIGN(4) sNDSHeaderExt ntrHeader;
 
 struct DirEntry {
 	string name;
 	bool isDirectory;
 };
 
-static mm_sound_effect sfxBack;
-static mm_sound_effect sfxLaunch;
-static mm_sound_effect sfxSelect;
-static mm_sound_effect sfxWrong;
-static bool audioReady = false;
-
-void InitAudio() {
-	mmInitDefaultMem((mm_addr)soundbank_bin);
-	
-	mmLoadEffect( SFX_BACK );
-	mmLoadEffect( SFX_LAUNCH );
-	mmLoadEffect( SFX_SELECT );
-	mmLoadEffect( SFX_WRONG );
-	
-	sfxBack = {
-		{ SFX_BACK } ,			// id
-		(int)(1.0f * (1<<10)),	// rate
-		0,		// handle
-		255,	// volume
-		128,	// panning
-	};
-	
-	sfxLaunch = {
-		{ SFX_LAUNCH } ,			// id
-		(int)(1.0f * (1<<10)),	// rate
-		0,		// handle
-		255,	// volume
-		128,	// panning
-	};
-	
-	sfxSelect = {
-		{ SFX_SELECT } ,			// id
-		(int)(1.0f * (1<<10)),	// rate
-		0,		// handle
-		255,	// volume
-		128,	// panning
-	};
-	
-	sfxWrong = {
-		{ SFX_WRONG } ,			// id
-		(int)(1.0f * (1<<10)),	// rate
-		0,		// handle
-		255,	// volume
-		128,	// panning
-	};
-	audioReady = true;
-}
 
 static bool cardInserted = false;
 static bool cardLoaded = false;
@@ -132,10 +82,10 @@ static void cartCheck() {
 			clearCartIcon(true);
 			cardLoaded = false;
 			if (cartSelected)cartSelected = false;
-			ToggleBackground();
 		}
 		if (cartInsertedOnBoot)cartInsertedOnBoot = false;
 		if (cartSelected)cartSelected = false;
+		ToggleBackground(true);
 		return;
 	}
 	if (cardInserted && initialLoad) {
@@ -144,10 +94,12 @@ static void cartCheck() {
 		initialLoad = false;
 		cardLoaded = true;
 		cartInsertedOnBoot = true;
+		ToggleBackground(false);
 	} else if (cardInserted && !cardLoaded){
 		cardInit(&ntrHeader);
 		for (int i = 0; i < 25; i++)swiWaitForVBlank();
 		cartIconUpdate(ntrHeader.bannerOffset, false);
+		ToggleBackground(false);
 		cardLoaded = true;
 	}
 }
@@ -251,7 +203,6 @@ void showDirectoryContents (const vector<DirEntry>& dirContents, int startRow) {
 }
 
 string browseForFile (const vector<string>& extensionList) {
-	if (!audioReady)InitAudio();
 	int pressed = 0;
 	int screenOffset = 0;
 	int fileOffset = 0;
@@ -278,10 +229,10 @@ string browseForFile (const vector<string>& extensionList) {
 			swiWaitForVBlank();
 		} while (!pressed);
 		if (!cartSelected) {
-			if (pressed & KEY_UP) {		fileOffset -= 1; mmEffectEx(&sfxSelect); }
-			if (pressed & KEY_DOWN) { 	fileOffset += 1; mmEffectEx(&sfxSelect); }
-			if (pressed & KEY_LEFT) { 	fileOffset -= ENTRY_PAGE_LENGTH; mmEffectEx(&sfxSelect); }
-			if (pressed & KEY_RIGHT) {	fileOffset += ENTRY_PAGE_LENGTH; mmEffectEx(&sfxSelect); }
+			if (pressed & KEY_UP) {		fileOffset -= 1; PlaySelectSFX(); }
+			if (pressed & KEY_DOWN) { 	fileOffset += 1; PlaySelectSFX(); }
+			if (pressed & KEY_LEFT) { 	fileOffset -= ENTRY_PAGE_LENGTH; PlaySelectSFX(); }
+			if (pressed & KEY_RIGHT) {	fileOffset += ENTRY_PAGE_LENGTH; PlaySelectSFX(); }
 		
 			if (fileOffset < 0)fileOffset = dirContents.size() - 1;		// Wrap around to bottom of list
 			if (fileOffset > ((int)dirContents.size() - 1))		fileOffset = 0;		// Wrap around to top of list
@@ -298,40 +249,40 @@ string browseForFile (const vector<string>& extensionList) {
 		}
 		if ((pressed & KEY_X)) {
 			if (cardLoaded) {
-				mmEffectEx(&sfxSelect);
+				PlaySelectSFX();
 				if (cartSelected) {
 					cartSelected = false;
-					ToggleBackground();
+					ToggleBackground(false);
 				} else if (cardLoaded) {
 					cartSelected = true;
-					ToggleBackground();
+					ToggleBackground(false);
 				}
 			} else {
-				mmEffectEx(&sfxWrong);
+				PlayWrongSFX();
 			}
 		}
 		
 		if (cartSelected) {
-			if (pressed & KEY_UP)mmEffectEx(&sfxWrong);
-			if (pressed & KEY_DOWN)mmEffectEx(&sfxWrong);
-			if (pressed & KEY_LEFT)mmEffectEx(&sfxWrong);
-			if (pressed & KEY_RIGHT)mmEffectEx(&sfxWrong);
+			if (pressed & KEY_UP)PlayWrongSFX();
+			if (pressed & KEY_DOWN)PlayWrongSFX();
+			if (pressed & KEY_LEFT)PlayWrongSFX();
+			if (pressed & KEY_RIGHT)PlayWrongSFX();
 				
 			if ((pressed & KEY_A)) {
 				if (cardLoaded) {
-					mmEffectEx(&sfxLaunch);
+					PlayLaunchSFX();
 					// Clear the screen
 					consoleClear();
 					return "CARTBOOT";
 				} else {
-					mmEffectEx(&sfxWrong);
+					PlayWrongSFX();
 				}
 			}
 		} else {
 			if (pressed & KEY_A) {
 				DirEntry* entry = &dirContents.at(fileOffset);
 				if (entry->isDirectory) {
-					mmEffectEx(&sfxSelect);
+					PlaySelectSFX();
 					iprintf("Entering directory\n");
 					// Enter selected directory
 					chdir (entry->name.c_str());
@@ -340,7 +291,7 @@ string browseForFile (const vector<string>& extensionList) {
 					fileOffset = 0;
 					showDirectoryContents (dirContents, screenOffset);
 				} else {
-					mmEffectEx(&sfxLaunch);
+					PlayLaunchSFX();
 					// Clear the screen
 					consoleClear();
 					// Return the chosen file
@@ -349,7 +300,7 @@ string browseForFile (const vector<string>& extensionList) {
 			}
 	
 			if (pressed & KEY_B) {
-				mmEffectEx(&sfxBack);
+				if (cartSelected) { PlayWrongSFX(); } else { PlayBackSFX(); }
 				// Go up a directory
 				chdir ("..");
 				getDirectoryContents (dirContents, extensionList);

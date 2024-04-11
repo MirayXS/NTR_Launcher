@@ -18,13 +18,10 @@
 
 #include <nds.h>
 #include <stdio.h>
-#include <maxmod9.h>
 #include <nds/arm9/decompress.h>
 
-#include "soundbank.h"
-#include "soundbank_bin.h"
-
 #include "bootsplash.h"
+#include "audio.h"
 
 #include "loading.h"
 
@@ -295,40 +292,7 @@ void vramcpy_ui (void* dest, const void* src, int size)  {
 	}
 }
 
-void BootJingle() {
-	mmInitDefaultMem((mm_addr)soundbank_bin);
-	
-	mmLoadEffect( SFX_DSBOOT );
-
-	mm_sound_effect dsboot = {
-		{ SFX_DSBOOT } ,			// id
-		(int)(1.0f * (1<<10)),	// rate
-		0,		// handle
-		255,	// volume
-		128,	// panning
-	};
-	
-	mmEffectEx(&dsboot);
-}
-
-void BootJingleDSi() {
-	
-	mmInitDefaultMem((mm_addr)soundbank_bin);
-
-	mmLoadEffect( SFX_DSIBOOT );
-
-	mm_sound_effect dsiboot = {
-		{ SFX_DSIBOOT } ,			// id
-		(int)(1.0f * (1<<10)),	// rate
-		0,		// handle
-		255,	// volume
-		128,	// panning
-	};
-	
-	mmEffectEx(&dsiboot);
-}
-
-void CartridgePrompt() {
+/*void CartridgePrompt() {
 	decompress ((void*)Bot05Tiles, (void*)CHAR_BASE_BLOCK_SUB(2), LZ77Vram);
 	vramcpy_ui (&BG_PALETTE_SUB[0], Bot05Pal, Bot05PalLen);
 
@@ -571,7 +535,7 @@ void CartridgePromptNoHS() {
 
 	for (int i = 0; i < 20; i++) { swiWaitForVBlank(); }
 
-}
+}*/
 
 void BootSplashDSi(bool HealthandSafety_MSG, int language) {
 
@@ -827,7 +791,7 @@ void BootSplashDSi(bool HealthandSafety_MSG, int language) {
 			break;
 	}	
 
-	BootJingleDSi();
+	PlayBootJingleDSi();
 
 	for (int i = 0; i < 2; i++) { swiWaitForVBlank(); }
 
@@ -997,7 +961,7 @@ void BootSplashDSi(bool HealthandSafety_MSG, int language) {
 	decompress ((void*)DSi28Tiles, (void*)CHAR_BASE_BLOCK(2), LZ77Vram);
 	vramcpy_ui (&BG_PALETTE[0], DSi28Pal, DSi28PalLen);
 
-	if(REG_SCFG_MC == 0x11) { 
+	/*if(REG_SCFG_MC == 0x11) { 
 		if(HealthandSafety_MSG) {
 			do {
 				switch (language) {
@@ -1031,7 +995,7 @@ void BootSplashDSi(bool HealthandSafety_MSG, int language) {
 			do { CartridgePromptNoHS(); } 
 			while (REG_SCFG_MC == 0x11);
 		}
-	}
+	}*/
 
 	// Pause on frame 31 for a second		
 	for (int i = 0; i < 80; i++) { swiWaitForVBlank(); }
@@ -1632,7 +1596,7 @@ void BootSplashDS(bool HealthandSafety_MSG, int language) {
 	decompress ((void*)Top025Tiles, (void*)CHAR_BASE_BLOCK(2), LZ77Vram);
 	vramcpy_ui (&BG_PALETTE[0], Top025Pal, Top025PalLen);
 
-	BootJingle();
+	PlayBootJingle();
 	decompress ((void*)Top026Tiles, (void*)CHAR_BASE_BLOCK(2), LZ77Vram);
 	vramcpy_ui (&BG_PALETTE[0], Top026Pal, Top026PalLen);
 
@@ -1891,7 +1855,7 @@ void BootSplashDS(bool HealthandSafety_MSG, int language) {
 	decompress ((void*)Top111Tiles, (void*)CHAR_BASE_BLOCK(2), LZ77Vram);
 	vramcpy_ui (&BG_PALETTE[0], Top111Pal, Top111PalLen);
 
-	if(REG_SCFG_MC == 0x11) { 
+	/*if(REG_SCFG_MC == 0x11) { 
 		if(HealthandSafety_MSG) {
 			do {
 				switch (language) {
@@ -1925,7 +1889,7 @@ void BootSplashDS(bool HealthandSafety_MSG, int language) {
 			do { CartridgePromptNoHS(); } 
 			while (REG_SCFG_MC == 0x11);
 		}
-	}
+	}*/
 
 	// Pause on frame 111 for a second		
 	for (int i = 0; i < 80; i++) { swiWaitForVBlank(); }

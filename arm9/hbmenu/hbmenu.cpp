@@ -38,14 +38,39 @@
 #include "../source/launch_engine.h"
 #include "read_card.h"
 #include "nds_card.h"
+#include "tonccpy.h"
 
 using namespace std;
 
-ALIGN(4) sNDSHeaderExt NTRHeader;
+// ALIGN(4) sNDSHeaderExt NTRHeader;
 
-static void DoWait(int waitTime = 30){
-	for (int i = 0; i < waitTime; i++)swiWaitForVBlank();
+static char gameTitle[13] = {0};
+// static char gameCode[5] = {0};
+
+static u8* fileBuffer;
+
+
+static const char* NitroSourceFileList[7] = {
+	"nitro:/NTR_Launcher/Acekard2i.nds",
+	"nitro:/NTR_Launcher/ActionReplayDS.nds",
+	"nitro:/NTR_Launcher/DSTwo.nds",
+	"nitro:/NTR_Launcher/EZFlashV.nds",
+	"nitro:/NTR_Launcher/R4iGold_Launcher.nds",
+	"nitro:/NTR_Launcher/R4iSDHC_Demon.nds",
+	"nitro:/NTR_Launcher/TTDS.nds"
 };
+
+static const char* NitroDestFileList[7] = {
+	"sd:/NTR_Launcher/Acekard2i.nds",
+	"sd:/NTR_Launcher/ActionReplayDS.nds",
+	"sd:/NTR_Launcher/DSTwo.nds",
+	"sd:/NTR_Launcher/EZFlashV.nds",
+	"sd:/NTR_Launcher/R4iGold_Launcher.nds",
+	"sd:/NTR_Launcher/R4iSDHC_Demon.nds",
+	"sd:/NTR_Launcher/TTDS.nds"
+};
+
+static void DoWait(int waitTime = 30) { for (int i = 0; i < waitTime; i++)swiWaitForVBlank(); };
 
 static void DoCardInit() {
 	switch (REG_SCFG_MC) {
@@ -54,10 +79,10 @@ static void DoCardInit() {
 	}
 	// Do cart init stuff to wake cart up. DLDI init may fail otherwise!
 	CardReset(true);
-	cardReadHeader((u8*)&NTRHeader);
+	cardReadHeader((u8*)&ntrHeader);
 	CardReset(false);
-	// tonccpy(gameTitle, NTRHeader.header.gameTitle, 12);
-	// tonccpy(gameCode, NTRHeader.header.gameCode, 4);
+	tonccpy(gameTitle, ntrHeader.gameTitle, 12);
+	// tonccpy(gameCode, ntrHeader.gameCode, 4);
 	DoWait(25);
 }
 
@@ -92,7 +117,46 @@ static int stop(void) {
 	return 0;
 }
 
-static int FileBrowser(tLauncherSettings launchdata) {
+static void CheckFolder() {
+	if (sizeof(NitroSourceFileList) != sizeof(NitroDestFileList))return;
+	bool copyNeeded = false;
+	int listSize = 7;
+	for (int i = 0; i < listSize; i++) {
+		if (access(NitroDestFileList[i], F_OK) != 0) {
+			copyNeeded = true;
+			break;
+		}
+	}
+	if (!copyNeeded)return;
+	printf("\n\n\n\n\n\n\n\n\n   Setting up Stage2 folder");
+	printf("\n\n        Please Wait...\n");
+	
+	u32 BufferSize = 0x40000;
+	fileBuffer = (u8*)malloc(BufferSize);
+	for (int i = 0; i < listSize; i++) {
+		if (access(NitroDestFileList[i], F_OK) != 0) {
+			FILE *src = fopen(NitroSourceFileList[i], "rb");
+			if (src) {
+				fseek(src, 0, SEEK_END);
+				u32 fSize = ftell(src);
+				// toncset((u8*)fileBuffer, 0xFF, fSize);
+				fseek(src, 0, SEEK_SET);
+				if (fSize <= BufferSize) {
+					FILE *dest = fopen(NitroDestFileList[i], "wb");
+					if (dest) {
+						fread((u8*)fileBuffer, 1, fSize, src);
+						fwrite((u8*)fileBuffer, fSize, 1, dest);
+						fclose(dest);
+					}
+				}
+				fclose(src);
+			}
+		}
+	}
+}
+
+
+static int BrowserUI(tLauncherSettings launchdata) {
 	consoleClear();
 	vector<string> extensionList = argsGetExtensionList();
 	chdir("sd:/NTR_Launcher");
@@ -116,19 +180,27 @@ static int FileBrowser(tLauncherSettings launchdata) {
 		argarray.clear();
 	}
 	if (cartSelected) {
-		if (cartInsertedOnBoot) { 
-			DoCardInit(); // Currently required for bootlaoder to succeed with card init.
-		} else {
-			// Give launch soundfx time to finish
-			DoWait(40);
+		if (cartInsertedOnBoot)DoCardInit(); // Currently required for bootlaoder to succeed with card init.
+		// DS-Xtreme does not like running in TWL clock speeds.
+		// (write function likely goes too fast and semi-bricks hidden sector region randomly when using official launcher)
+		if (!memcmp(gameTitle, "D!S!XTREME", 9)) {
+			launchdata.scfgUnlock = 0x00;
+			launchdata.twlMode = 0x00;
+			launchdata.twlCLK = 0x00;
+			launchdata.twlVRAM = 0x00;
 		}
-		runLaunchEngine(launchdata);	
+		// Give launch soundfx time to finish
+		DoWait(50);
+		runLaunchEngine(launchdata);
+	} else {
+		DoWait(50);
 	}
 	return stop();
 }
 
-void StartFileBrowser(tLauncherSettings launchdata) {
+void StartFileBrowser(tLauncherSettings launchdata, bool nitroFSMounted) {
 	InitGUI();
-	FileBrowser(launchdata);
+	CheckFolder();
+	BrowserUI(launchdata);
 }
 

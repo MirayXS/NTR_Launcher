@@ -36,6 +36,7 @@
 #include "hbmenu.h"
 #include "launcherData.h"
 #include "read_card.h"
+#include "audio.h"
 
 #define FILECOPYBUFFER 0x02000000
 
@@ -96,9 +97,9 @@ bool MountNitroFS() {
 	return nitroFSMounted;
 }
 
-void StartStage2Mode(tLauncherSettings Launchdata) {
+static void StartStage2Mode(tLauncherSettings Launchdata, bool nitro) {
 	sysSetCardOwner (BUS_OWNER_ARM9);
-	StartFileBrowser(Launchdata);
+	StartFileBrowser(Launchdata, nitro);
 }
 
 
@@ -181,17 +182,23 @@ int main() {
 	bool twlclk = false;
 	bool twlvram = false;
 	bool debugmode = false;
-	bool fastBoot = false;
+	// bool fastBoot = false;
 	bool stage2Menu = false;
+	bool autoBoot = true;
 
 	bool useAnimatedSplash = false;
 	bool useNTRSplash = true;
 	bool healthAndSafety_MSG = true;
+	
+	bool fatInit = fatMountSimple("sd", get_io_dsisd());
+	bool nitroInit = false;
 
-	if (fatMountSimple("sd", get_io_dsisd())) {
+	if (fatInit) {
 		if(access("sd:/NTR_Launcher", F_OK) != 0)mkdir("sd:/NTR_Launcher", 0777);
-		if ((access("sd:/NTR_Launcher/NTR_Launcher.ini", F_OK) != 0) && MountNitroFS()) {
-			FILE *src = fopen("nitro:/NTR_Launcher.ini", "rb");
+		nitroInit = MountNitroFS();
+		
+		if ((access("sd:/NTR_Launcher/NTR_Launcher.ini", F_OK) != 0) && nitroInit) {
+			FILE *src = fopen("nitro:/NTR_Launcher/NTR_Launcher.ini", "rb");
 			if (src) {
 				FILE *dest = fopen("sd:/NTR_Launcher/NTR_Launcher.ini", "wb");
 				if (dest) {
@@ -216,6 +223,7 @@ int main() {
 			useNTRSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","NTRSPLASH",0);
 			healthAndSafety_MSG = ntrlauncher_config.GetInt("NTRLAUNCHER","HEALTHSAFETYSPLASH",0);
 		
+			autoBoot = ntrlauncher_config.GetInt("NTRLAUNCHER","AUTOBOOT",1);
 			debugmode = ntrlauncher_config.GetInt("NTRLAUNCHER","DEBUGMODE",0);
 			language = ntrlauncher_config.GetInt("NTRLAUNCHER", "LANGUAGE", -1);
 		}
@@ -228,23 +236,35 @@ int main() {
 	if (twlmode)LaunchData.twlMode = 0x01;
 	if (twlclk)LaunchData.twlCLK = 0x01;
 	if (twlvram)LaunchData.twlVRAM = 0x01;
-	if (fastBoot)LaunchData.fastBoot = 0x01;
+	if (!autoBoot)stage2Menu = true;
+	// if (fastBoot)LaunchData.fastBoot = 0x01;
 		
-	if (((keysHeld() & KEY_L) && (keysHeld() & KEY_R)) || (REG_SCFG_MC == 0x11))stage2Menu = true;
+	if (keysDown() & KEY_B) {
+		if (stage2Menu) { stage2Menu = false; } else { stage2Menu = true; }
+	}
+	
+	if (REG_SCFG_MC == 0x11)stage2Menu = true;
 	
 	if ((REG_SCFG_MC == 0x10) && !stage2Menu) { sysSetCardOwner (BUS_OWNER_ARM9); DoCardInit(false, false); }
 	
-	if (keysDown() & KEY_B) {
-		debugmode = true;
-	} else if (keysDown() & KEY_L) {
-		twlclk = false; twlvram = true; scfgunlock = false; twlmode = false;
-	} else if (keysDown() & KEY_R) {
-		twlclk = true; twlvram = true; scfgunlock = true; twlmode = true;
+	if (!stage2Menu) {
+		if ((keysHeld() & KEY_L) && (keysHeld() & KEY_R)) {
+			debugmode = true;
+		} else if (keysDown() & KEY_L) {
+			twlclk = false; twlvram = true; scfgunlock = false; twlmode = false;
+		} else if (keysDown() & KEY_R) {
+			twlclk = true; twlvram = true; scfgunlock = true; twlmode = true;
+		}
 	}
+	
+	if (!fatInit)stage2Menu = false;
 	
 	ConsoleInit = debugmode;
 	if (stage2Menu) { ConsoleInit = false; debugmode = false; }
 	if (debugmode)useAnimatedSplash = false;
+	
+	if (useAnimatedSplash || stage2Menu)InitAudio();
+	
 	if (!useAnimatedSplash) {
 		if (debugmode)InitConsole();
 		// fastBoot = !DoSlotCheck(debugmode);
@@ -270,18 +290,18 @@ int main() {
 		LaunchData.fastBoot = 0x00;
 	}*/
 	
-	if (stage2Menu || (REG_SCFG_MC == 0x11)) { 
-		StartStage2Mode(LaunchData);
+	if ((stage2Menu || (REG_SCFG_MC == 0x11)) && fatInit) { 
+		StartStage2Mode(LaunchData, nitroInit);
 	} else {
 		// DoCardInit(debugmode, fastBoot);
 		DoCardInit(debugmode, false);
 		// DS-Xtreme does not like running in TWL clock speeds.
 		// (write function likely goes too fast and semi-bricks hidden sector region randomly when using official launcher)
 		if (!memcmp(gameTitle, "D!S!XTREME", 9)) {
-			scfgunlock = false;
-			twlclk = false;
-			twlvram = false;
-			twlmode = false;
+			LaunchData.scfgUnlock = 0x00;
+			LaunchData.twlCLK = 0x00;
+			LaunchData.twlVRAM = 0x00;
+			LaunchData.twlMode = 0x00;
 		}
 		while(1) {
 			// If SCFG_MC is returning as zero/null, this means SCFG_EXT registers are locked on arm9 or user attempted to run this while in NTR mode.

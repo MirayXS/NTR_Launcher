@@ -26,7 +26,7 @@
 
 #include "launcherData.h"
 
-void StartFileBrowser(tLauncherSettings launchdata);
+void StartFileBrowser(tLauncherSettings launchdata, bool nitroFSMounted);
 
 #endif // HBMENU_H
 

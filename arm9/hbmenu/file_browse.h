@@ -24,8 +24,11 @@
 
 #include <string>
 #include <vector>
+#include "read_card.h"
+
 
 extern bool cartInsertedOnBoot;
+extern sNDSHeaderExt ntrHeader;
 
 std::string browseForFile (const std::vector<std::string>& extensionList);
 

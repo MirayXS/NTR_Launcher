@@ -29,6 +29,7 @@
 #include "args.h"
 #include "hbmenu_banner.h"
 #include "hbmenu_banner_cartSelected.h"
+#include "hbmenu_banner_noCart.h"
 #include "font6x8.h"
 #include "read_card.h"
 #include "launcherData.h"
@@ -91,27 +92,26 @@ static inline void writeRow (int rownum, const char* text, bool isCartBannerText
 
 static inline void clearIcon (void) { dmaFillHalfWords(0, sprite, sizeof(banner.icon)); }
 
+void ToggleBackground (bool noCart) {
+	DC_FlushAll();
+	if (cartSelected) {
+		decompress(hbmenu_banner_cartSelectedBitmap, bgGetGfxPtr(bg3), LZ77Vram);
+	} else {
+		if (noCart) {
+			decompress(hbmenu_banner_noCartBitmap, bgGetGfxPtr(bg3), LZ77Vram);
+		} else {
+			decompress(hbmenu_bannerBitmap, bgGetGfxPtr(bg3), LZ77Vram);
+		}
+	}
+}
+
 void clearCartIcon(bool clearBannerText) { 
 	if (clearBannerText) {
-		writeRow (0, "", true);
-		writeRow (1, "(no cart inserted)", true);
-		writeRow (2, "", true);
-		writeRow (3, "", true);
+		for (int i = 0; i < 4; i++)writeRow (i, "", true);
 	}
 	dmaFillHalfWords(0, sprite2, sizeof(banner.icon)); 
 }
 
-void ToggleBackground () {
-	DC_FlushAll();
-	if (cartSelected) {
-		// load compressed bitmap into bg3
-		decompress(hbmenu_banner_cartSelectedBitmap, bgGetGfxPtr(bg3), LZ77Vram);
-	} else {
-		decompress(hbmenu_bannerBitmap, bgGetGfxPtr(bg3), LZ77Vram);
-	}
-	// apply the bg changes
-	// bgUpdate();	
-}
 
 void iconTitleInit (void) {
 	// initialize video mode
@@ -138,7 +138,7 @@ void iconTitleInit (void) {
 	decompress(font6x8Tiles, bgGetGfxPtr(bg2), LZ77Vram);
 
 	// load compressed bitmap into bg3
-	decompress(hbmenu_bannerBitmap, bgGetGfxPtr(bg3), LZ77Vram);
+	decompress(hbmenu_banner_noCartBitmap, bgGetGfxPtr(bg3), LZ77Vram);
 
 	// load font palette
 	dmaCopy(font6x8Pal, BG_PALETTE, font6x8PalLen);
@@ -164,8 +164,8 @@ void iconTitleInit (void) {
 
 	// everything's ready :)
 	writeRow (1,"=====================", false);
-	writeRow (1,"==>> Loading ... <<==", false);
-	writeRow (1,"=====================", false);
+	writeRow (2,"==>> Loading ... <<==", false);
+	writeRow (3,"=====================", false);
 }
 
 
@@ -281,9 +281,7 @@ void cartIconUpdate (u32 BannerOffset, bool readExistingBanner) {
 			return;
 		}break;
 		default: {
-			writeRow (0, "", true);
-			writeRow (1, "", true);
-			writeRow (2, "", true);
+			clearCartIcon(false);
 			// turn unicode into ascii (kind of)
 			// and convert 0x0A into 0x00
 			char *p = (char*)cartBanner->titles[0];
