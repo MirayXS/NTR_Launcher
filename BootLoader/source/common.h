@@ -33,9 +33,19 @@ typedef struct sLauncherSettings {
 	u8 twlCLK;
 	u8 twlVRAM;
 	u8 debugMode;
+	u8 fastBoot;
+	u8 unused2;
 } tLauncherSettings;
 
-extern volatile tLauncherSettings* tmpData;
+extern volatile tLauncherSettings* launchData;
+extern volatile int language;
+extern volatile bool scfgUnlock;
+extern volatile bool twlMode;
+extern volatile bool twlCLK;
+extern volatile bool debugMode;
+
+#define CartHeaderCopy 0x02000000
+#define CartChipIDCopy 0x02000180
 
 enum ERROR_CODES {
 	ERR_NONE = 0x00,

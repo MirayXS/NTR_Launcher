@@ -53,15 +53,9 @@ External functions
 extern void arm7_clearmem (void* loc, size_t len);
 extern void arm7_reset (void);
 
-static int language = -1;
-static bool scfgUnlock = false;
-static bool twlMode = false;
-static bool twlCLK = false;
-static bool debugMode = false;
-
 static bool useTwlCfg = false;
 static int twlCfgLang = 0;
-
+// static bool useShortInit = false;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Important things
@@ -375,7 +369,7 @@ static void arm7_readFirmware(tNDSHeader* ndsHeader) {
 
 	tonccpy(PersonalData, currentSettings, sizeof(PERSONAL_DATA));
 
-	if (useTwlCfg && (language == 0xFF || language == -1)) { language = twlCfgLang; }
+	if (useTwlCfg && (language == 0xFF)) { language = twlCfgLang; }
 
 	if (language >= 0 && language <= 7) {
 		// Change language
@@ -420,8 +414,13 @@ static void arm7_resetMemory (void) {
 	arm7_clearmem ((void*)0x037F8000, 96*1024);
 
 	// clear most of EXRAM - except after 0x022FD800, which has the ARM9 code
+	// Skip 0x0200000 region if fastBoot enabled. (cart header copy stored here)
+	/*if (useShortInit) {
+		arm7_clearmem ((void*)0x02000200, 0x002FD600);
+	} else {
+		arm7_clearmem ((void*)0x02000000, 0x002FD800);
+	}*/
 	arm7_clearmem ((void*)0x02000000, 0x002FD800);
-
 	// clear last part of EXRAM, skipping the ARM9's section
 	arm7_clearmem ((void*)0x023FE000, 0x2000);
 	
@@ -487,7 +486,15 @@ static u32 arm7_loadBinary (void) {
 	tDSiHeader* twlHeaderTemp = (tDSiHeader*)TMP_HEADER; // Use same region cheat engine goes. Cheat engine will replace this later when it's not needed.
 
 	// Init card
+	/*if (useShortInit) {
+		errorCode = cardInitShort((sNDSHeaderExt*)twlHeaderTemp, &chipID);
+		arm7_clearmem ((void*)0x02000200, 0x200); // clear temp header data
+	} else {
+		errorCode = cardInit((sNDSHeaderExt*)twlHeaderTemp, &chipID);
+	}*/
+	
 	errorCode = cardInit((sNDSHeaderExt*)twlHeaderTemp, &chipID);
+	
 	if (errorCode)return errorCode;
 
 	ndsHeader = loadHeader(twlHeaderTemp); // copy twlHeaderTemp to ndsHeader location
@@ -518,19 +525,21 @@ static u32 arm7_loadBinary (void) {
 void arm7_main (void) {
 
 	u32 errorCode;
-	
-	if (language != 0xFF)language = (int)tmpData->language;
-	if (tmpData->scfgUnlock > 0x00)scfgUnlock = true;
-	if (tmpData->twlMode > 0x00)twlMode = true;
-	if (tmpData->twlCLK > 0x00)twlCLK = true;
-	if (tmpData->debugMode > 0x00)debugMode = true;
-	
+
 	// Synchronise start
 	while (ipcRecvState() != ARM9_START);
 	ipcSendState(ARM7_START);
 
 	// Wait until ARM9 is ready
 	while (ipcRecvState() != ARM9_READY);
+
+	if (language != 0xFF)language = (int)launchData->language;
+	if (launchData->scfgUnlock > 0x00)scfgUnlock = true;
+	if (launchData->twlMode > 0x00)twlMode = true;
+	if (launchData->twlCLK > 0x00)twlCLK = true;
+	if (launchData->debugMode > 0x00)debugMode = true;
+	// if (launchData->fastBoot > 0x00)useShortInit = true;
+	
 	
 	if (twlMode) {
 		REG_MBK9=0x0300000F;
@@ -582,7 +591,7 @@ void arm7_main (void) {
 		REG_SCFG_EXT = 0x92A00000;
 	}
 
-	if (twlCLK) { REG_SCFG_CLK = 0x0185; } else { REG_SCFG_CLK = 0x0101; }
+	if (twlCLK) { REG_SCFG_CLK = 0x0187; } else { REG_SCFG_CLK = 0x0101; }
 	if (scfgUnlock) { REG_SCFG_EXT |= BIT(18); } else { REG_SCFG_EXT &= ~(1UL << 31); }
 	
 	setMemoryAddress(ndsHeader);

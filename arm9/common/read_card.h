@@ -16,23 +16,42 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef BIOS_DECOMPRESS_CALLBACK_H
-#define BIOS_DECOMPRESS_CALLBACK_H
+#ifndef READ_CARD_H
+#define READ_CARD_H
+
+#include <nds/ndstypes.h>
+#include <nds/memory.h>
+#include <stdlib.h>
+
+#include "ndsheaderbanner.h"
+
+#define CARD_NDS_HEADER_SIZE (0x200)
+#define CARD_SECURE_AREA_OFFSET (0x4000)
+#define CARD_SECURE_AREA_SIZE (0x4000)
+#define CARD_DATA_OFFSET (0x8000)
+#define CARD_DATA_BLOCK_SIZE (0x200)
+#define MODC_AREA_SIZE          0x4000
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <nds/bios.h>
-#include <nds/ndstypes.h>
+extern u32 cardNandRomEnd;
+extern u32 cardNandRwStart;
 
-extern TDecompressionStream decompressBiosCallback;
+int cardInit (sNDSHeaderExt* ndsHeader);
+int cardInitShort(sNDSHeaderExt* ndsHeader);
 
+void cardRead (u32 src, void* dest, bool nandSave);
+void cardReadAlt (u32 src, void* dest, size_t size);
 
+u32 cardGetId (void);
+
+void cardWriteNand (void* src, u32 dest);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // BIOS_DECOMPRESS_CALLBACK_H
+#endif // READ_CARD_H
 

@@ -24,21 +24,24 @@
 #include <nds/dma.h>
 #include <nds/card.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "encryption.h"
 #include "common.h"
+#include "tonccpy.h"
 
 typedef union { char title[4]; u32 key; } GameCode;
 
 static u32 portFlags = 0;
 static u32 secureAreaData[CARD_SECURE_AREA_SIZE/sizeof(u32)];
+// static bool shortInit = false;
 
 static const u8 cardSeedBytes[] = {0xE8, 0x4D, 0x5A, 0xB1, 0x17, 0x8F, 0x99, 0xD5};
 
-static u32 getRandomNumber(void) {
-	return 4;	// chosen by fair dice roll.
-				// guaranteed to be random.
-}
+// chosen by fair dice roll.
+// guaranteed to be random.
+// static u32 getRandomNumber(void) { return 4; }
+static u32 getRandomNumber(void) { return rand(); } // make this actually random lol. :P
 
 static void decryptSecureArea (u32 gameCode, u32* secureArea) {
 	int i;
@@ -120,7 +123,7 @@ static void cardDelay (u16 readTimeout) {
 }
 
 
-int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
+u32 cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 	u32 portFlagsKey1, portFlagsSecRead;
 	bool normalChip;	// As defined by GBAtek, normal chip secure area is accessed in blocks of 0x200, other chip in blocks of 0x1000
 	u32* secureArea;
@@ -128,6 +131,7 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 	int i;
 	u8 cmdData[8] __attribute__ ((aligned));
 	GameCode* gameCode;
+	// shortInit = false;
 	
 	// Dummy command sent after card reset
 	cardParamCommand (CARD_CMD_DUMMY, 0, CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(1) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F), NULL, 0);
@@ -136,19 +140,10 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 	static_assert(sizeof(tNDSHeader) == 0x160, "tNDSHeader not packed properly");
 
 	// Read the header
-	cardParamCommand (CARD_CMD_HEADER_READ, 0,
-		CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(1) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F),
-		(uint32*)ndsHeader, sizeof(tNDSHeader));
+	cardParamCommand (CARD_CMD_HEADER_READ, 0, CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(1) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F), (u32*)ndsHeader, sizeof(tNDSHeader));
 
 	// Check header CRC
-	if (ndsHeader->headerCRC16 != swiCRC16(0xFFFF, (void*)ndsHeader, 0x15E)) {
-		return ERR_HEAD_CRC;
-	}
-
-	// Check logo CRC
-	/*if (ndsHeader->logoCRC16 != 0xCF56) {
-		return ERR_LOGO_CRC;
-	}*/
+	if (ndsHeader->headerCRC16 != swiCRC16(0xFFFF, (void*)ndsHeader, 0x15E))return ERR_HEAD_CRC;
 
 	// Initialise blowfish encryption for KEY1 commands and decrypting the secure area
 	gameCode = (GameCode*)ndsHeader->gameCode;
@@ -157,13 +152,10 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 	// Port 40001A4h setting for normal reads (command B7)
 	portFlags = ndsHeader->cardControl13 & ~CARD_BLK_SIZE(7);
 	// Port 40001A4h setting for KEY1 commands   (usually 001808F8h)
-	portFlagsKey1 = CARD_ACTIVATE | CARD_nRESET | (ndsHeader->cardControl13 & (CARD_WR|CARD_CLK_SLOW)) |
-		((ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF))) + ((ndsHeader->cardControlBF & CARD_DELAY2(0x3F)) >> 16));
+	portFlagsKey1 = CARD_ACTIVATE | CARD_nRESET | (ndsHeader->cardControl13 & (CARD_WR|CARD_CLK_SLOW)) | ((ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF))) + ((ndsHeader->cardControlBF & CARD_DELAY2(0x3F)) >> 16));
 
 	// 1st Get ROM Chip ID
-	cardParamCommand (CARD_CMD_HEADER_CHIPID, 0,
-		(ndsHeader->cardControl13 & (CARD_WR|CARD_nRESET|CARD_CLK_SLOW)) | CARD_ACTIVATE | CARD_BLK_SIZE(7),
-		chipID, sizeof(u32));
+	cardParamCommand (CARD_CMD_HEADER_CHIPID, 0, (ndsHeader->cardControl13 & (CARD_WR|CARD_nRESET|CARD_CLK_SLOW)) | CARD_ACTIVATE | CARD_BLK_SIZE(7), chipID, sizeof(u32));
 
 	// Adjust card transfer method depending on the most significant bit of the chip ID
 	normalChip = ((*chipID) & 0x80000000) != 0;		// ROM chip ID MSB
@@ -187,9 +179,9 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 	// Set the KEY2 encryption registers
 	REG_ROMCTRL = 0;
 	REG_CARD_1B0 = cardSeedBytes[ndsHeader->deviceType & 0x07] | (key1data.nnn << 15) | (key1data.mmm << 27) | 0x6000;
-	REG_CARD_1B4 = 0x879b9b05;
+	REG_CARD_1B4 = 0x879B9B05;
 	REG_CARD_1B8 = key1data.mmm >> 5;
-	REG_CARD_1BA = 0x5c;
+	REG_CARD_1BA = 0x5C;
 	REG_ROMCTRL = CARD_nRESET | CARD_SEC_SEED | CARD_SEC_EN | CARD_SEC_DAT;
 
 	// Update the DS card flags to suit KEY2 encryption
@@ -208,9 +200,8 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 
 	// 2bbbbiii jjjkkkkk - Get Secure Area Block
 	secureArea = secureAreaData;
-	portFlagsSecRead = (ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF)|CARD_DELAY2(0x3F)))
-		| CARD_ACTIVATE | CARD_nRESET | CARD_SEC_EN | CARD_SEC_DAT;
-
+	portFlagsSecRead = (ndsHeader->cardControlBF & (CARD_CLK_SLOW|CARD_DELAY1(0x1FFF)|CARD_DELAY2(0x3F))) | CARD_ACTIVATE | CARD_nRESET | CARD_SEC_EN | CARD_SEC_DAT;
+	
 	for (secureBlockNumber = 4; secureBlockNumber < 8; secureBlockNumber++) {
 		createEncryptedCommand (CARD_CMD_SECURE_READ, cmdData, secureBlockNumber);
 		if (normalChip) {
@@ -256,11 +247,10 @@ int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 	return ERR_NONE;
 }
 
-void cardRead (u32 src, u32* dest, size_t size)
-{
+void cardRead (u32 src, u32* dest, size_t size) {
 	size_t readSize;
 
-	if (src < CARD_SECURE_AREA_OFFSET) {
+	if ((src < CARD_SECURE_AREA_OFFSET) /*&& !shortInit*/) {
 		return;
 	} else if (src < CARD_DATA_OFFSET) {
 		// Read data from secure area
@@ -273,12 +263,65 @@ void cardRead (u32 src, u32* dest, size_t size)
 
 	while (size > 0) {
 		readSize = size < CARD_DATA_BLOCK_SIZE ? size : CARD_DATA_BLOCK_SIZE;
-		cardParamCommand (CARD_CMD_DATA_READ, src,
-			(portFlags &~CARD_BLK_SIZE(7)) | CARD_ACTIVATE | CARD_nRESET | CARD_BLK_SIZE(1),
-			dest, readSize);
+		cardParamCommand (CARD_CMD_DATA_READ, src, (portFlags &~CARD_BLK_SIZE(7)) | CARD_ACTIVATE | CARD_nRESET | CARD_BLK_SIZE(1), dest, readSize);
 		src += readSize;
 		dest += readSize/sizeof(*dest);
 		size -= readSize;
 	}
 }
+
+// If booted from DSi System Menu short cart init with no card reads or pokes to rom ctrl registers can be done.
+// System Menu is nice enough to do this for you. :P
+// (also is the case for booting from DS Download Play. ;) )
+/*u32 cardInitShort (sNDSHeaderExt* ndsHeader, u32* chipID) {
+	bool normalChip;	// As defined by GBAtek, normal chip secure area is accessed in blocks of 0x200, other chip in blocks of 0x1000
+	u32* secureArea;
+	GameCode* gameCode;
+	shortInit = true;
+
+	// Verify that the ndsHeader is packed correctly, now that it's no longer __packed__
+	static_assert(sizeof(tNDSHeader) == 0x160, "tNDSHeader not packed properly");
+
+	// Read the header
+	tonccpy(ndsHeader, (u32*)CartHeaderCopy, 0x180);
+
+	// Check header CRC
+	if (ndsHeader->headerCRC16 != swiCRC16(0xFFFF, (void*)ndsHeader, 0x15E))return ERR_HEAD_CRC;
+
+	// Initialise blowfish encryption for KEY1 commands and decrypting the secure area
+	gameCode = (GameCode*)ndsHeader->gameCode;
+	init_keycode (gameCode->key, 2, 8);
+
+	// Port 40001A4h setting for normal reads (command B7)
+	portFlags = ndsHeader->cardControl13 & ~CARD_BLK_SIZE(7);
+
+	// 1st Get ROM Chip ID
+	// chipID = *(u32*)0x02FFFC00; // This location contains cart's chipID when booting DSiWare that has Slot-1 access.
+	// chipID = *(u32*)0x027FF800; // This location contains cart's chipID for DS Download Play users
+	tonccpy(chipID, (u32*)CartChipIDCopy, 0x08); // This location contains cart's chipID when booting DSiWare that has Slot-1 access.
+	
+	// Adjust card transfer method depending on the most significant bit of the chip ID
+	normalChip = ((*chipID) & 0x80000000) != 0;		// ROM chip ID MSB
+	
+	if (normalChip)cardDelay(ndsHeader->readTimeout); 
+
+	// 2bbbbiii jjjkkkkk - Get Secure Area Block
+	secureArea = secureAreaData;
+	shortInit = false;
+	u32 secureBlockSize = 0x800;
+	if (!normalChip)secureBlockSize = 0x1000;
+	cardRead (ndsHeader->arm9romOffset, secureArea, secureBlockSize);
+
+	// Now deal with secure area decryption and verification
+	decryptSecureArea (gameCode->key, secureAreaData);
+
+	secureArea = secureAreaData;
+	if (secureArea[0] == 0x72636e65 && secureArea[1] == 0x6a624f79) {
+		// Secure area exists, so just clear the tag
+		secureArea[0] = 0xe7ffdeff;
+		secureArea[1] = 0xe7ffdeff;
+	}
+
+	return ERR_NONE;
+}*/
 

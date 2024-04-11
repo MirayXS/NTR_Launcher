@@ -22,19 +22,10 @@
 #include "load_bin.h"
 #include "launch_engine.h"
 #include "debugConsole.h"
+#include "launcherData.h"
 
 #define LCDC_BANK_D (u16*)0x06860000
 
-#define TMP_DATA 0x027FC000
-
-typedef struct sLauncherSettings {
-	u8 language;
-	u8 scfgUnlock;
-	u8 twlMode;
-	u8 twlCLK;
-	u8 twlVRAM;
-	u8 debugMode;
-} tLauncherSettings;
 
 void vramcpy (void* dst, const void* src, int len) {
 	u16* dst16 = (u16*)dst;
@@ -47,17 +38,23 @@ extern void InitConsole();
 
 extern bool ConsoleInit;
 
-void runLaunchEngine (int language, bool scfgUnlock, bool TWLMODE, bool TWLCLK, bool TWLVRAM, bool debugMode) {
-	
+
+ITCM_CODE static void SETSCFG() {
+	REG_SCFG_EXT=0x83002000;
+	for(int i = 0; i < 8; i++) { while(REG_VCOUNT!=191); while(REG_VCOUNT==191); }
+}
+
+
+void runLaunchEngine (tLauncherSettings launchdata) {
 	// Always init console so bootloader's new console can display error codes if needed.
-	if (!debugMode || !ConsoleInit) {  InitConsole();  } else { consoleClear(); }
-	
+	if (!launchdata.debugMode || !ConsoleInit) {  InitConsole();  } else { consoleClear(); }
+		
 	irqDisable(IRQ_ALL);
 	// Direct CPU access to VRAM bank D
 	VRAM_D_CR = VRAM_ENABLE | VRAM_D_LCD;
 	
 	// Clear VRAM
-	memset (LCDC_BANK_D, 0x00, 128 * 1024);
+	// memset (LCDC_BANK_D, 0x00, 128 * 1024);
 	
 	// Load the loader/patcher into the correct address
 	vramcpy (LCDC_BANK_D, load_bin, load_bin_size);
@@ -69,21 +66,11 @@ void runLaunchEngine (int language, bool scfgUnlock, bool TWLMODE, bool TWLCLK, 
 	// Reset into a passme loop
 	nocashMessage("Reset into a passme loop");
 	REG_EXMEMCNT |= ARM7_OWNS_ROM | ARM7_OWNS_CARD;
-
-	REG_SCFG_EXT=0x83002000;
 	
-	// for (int i = 0; i < 10; i++) { swiWaitForVBlank(); }
+	*(tLauncherSettings*)LAUNCH_DATA = launchdata;
 	
-	tLauncherSettings* tmpData = (tLauncherSettings*)TMP_DATA;
+	SETSCFG();
 	
-	tmpData->language = 0xFF;
-	if (language != -1)tmpData->language = language;
-	if (scfgUnlock)tmpData->scfgUnlock = 0x01;
-	if (TWLMODE)tmpData->twlMode = 0x01;
-	if (TWLCLK)tmpData->twlCLK = 0x01;
-	if (TWLVRAM)tmpData->twlVRAM = 0x01;
-	if (debugMode)tmpData->debugMode = 0x01;
-
 	// Return to passme loop
 	*(vu32*)0x027FFFFC = 0;
 	*(vu32*)0x027FFE04 = (u32)0xE59FF018; // ldr pc, 0x02FFFE24
@@ -91,7 +78,6 @@ void runLaunchEngine (int language, bool scfgUnlock, bool TWLMODE, bool TWLCLK, 
 	// Reset ARM7
 	// nocashMessage("resetARM7");
 	resetARM7(0x06020000);
-
 	// swi soft reset
 	// nocashMessage("swiSoftReset");
 	swiSoftReset();

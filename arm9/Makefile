@@ -16,8 +16,8 @@ include $(DEVKITARM)/ds_rules
 #---------------------------------------------------------------------------------
 BUILD		:=	build
 IMAGES		:=	graphics
-SOURCES		:=	source $(IMG_DATA)
-INCLUDES	:=	include
+SOURCES		:=	source common hbmenu $(IMG_DATA)
+INCLUDES	:=	include common hbmenu
 DATA		:=	../data
 MUSIC       :=  music
 
@@ -26,7 +26,7 @@ MUSIC       :=  music
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv5te -mtune=arm946e-s -mthumb -mthumb-interwork
 
-CFLAGS	:=	-g -Wall -O2\
+CFLAGS	:=	-g -Wall -O2 \
  			-fomit-frame-pointer\
 			-ffast-math \
 			$(ARCH)
@@ -803,22 +803,6 @@ BotDSi10.s			:	../$(IMAGES)/BotDSi10.bmp
 BotDSi11.s			:	../$(IMAGES)/BotDSi11.bmp
 	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
 
-# generic fade from white to black
-fade00.s			:	../$(IMAGES)/fade00.bmp
-	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
-
-fade01.s			:	../$(IMAGES)/fade01.bmp
-	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
-
-fade02.s			:	../$(IMAGES)/fade02.bmp
-	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
-
-fade03.s			:	../$(IMAGES)/fade03.bmp
-	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
-
-fade04.s			:	../$(IMAGES)/fade04.bmp
-	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
-
 # generic bottom screen error message
 suberror00.s			:	../$(IMAGES)/suberror00.bmp
 	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
@@ -862,6 +846,25 @@ toperror2_05.s			:	../$(IMAGES)/toperror2_05.bmp
 
 toperror2_06.s			:	../$(IMAGES)/toperror2_06.bmp
 	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
+
+loading.s			:	../$(IMAGES)/loading.bmp
+	grit	$< -gB8 -gzl -fts -gTff00ff -o $@ -q
+	
+font.s			:	../$(IMAGES)/font.bmp
+	grit	$< -gt -pw16 -mR! -m! -gB4 -o $@ -q
+
+font6x8.s			:	../$(IMAGES)/font6x8.bmp
+	grit	$< -gB8 -gTFFFFFF -gzl -o $@ -q
+	
+hbmenu_banner.s			:	../$(IMAGES)/hbmenu_banner.bmp
+	grit	$< -W3 -gT! -gzl -gB16 -o $@ -q
+
+hbmenu_banner_cartSelected.s	:	../$(IMAGES)/hbmenu_banner_cartSelected.bmp
+	grit	$< -W3 -gT! -gzl -gB16 -o $@ -q
+
+hbmenu_consolebg.s			:	../$(IMAGES)/hbmenu_consolebg.bmp
+	grit	$< -gB8 -gb -o $@ -q
+
 
 #---------------------------------------------------------------------------------
 # rule to build soundbank from music files

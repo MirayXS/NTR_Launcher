@@ -121,9 +121,9 @@ typedef struct {
 	u8 dsi3[0x174];
 } sNDSHeaderExt;
 
-int cardInit (sNDSHeaderExt* ndsHeader, u32* chipID);
-
+u32 cardInit (sNDSHeaderExt* ndsHeader, u32* chipID);
 void cardRead (u32 src, u32* dest, size_t size);
+// u32 cardInitShort (sNDSHeaderExt* ndsHeader, u32* chipID);
 
 #endif // READ_CARD_H
 

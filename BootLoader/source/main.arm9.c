@@ -40,7 +40,7 @@
 #include "common.h"
 #include "miniconsole.h"
 
-#define TMP_DATA 0x027FC000
+#define LAUNCH_DATA 0x020007F0
 
 volatile int arm9_stateFlag = ARM9_BOOT;
 volatile u32 arm9_errorCode = 0xFFFFFFFF;
@@ -48,14 +48,16 @@ volatile bool arm9_errorClearBG = false;
 volatile bool consoleDebugMode = false;
 volatile u32 arm9_BLANK_RAM = 0;
 volatile u32 defaultFontPalSlot = 0;
-volatile tLauncherSettings* tmpData = (tLauncherSettings*)TMP_DATA;
 
-static bool scfgUnlock = false;
-static bool TWLMODE = false;
-static bool TWLVRAM = false;
-static bool TWLCLK = false;
-static bool debugMode = false;
-static bool consoleInit = false;
+volatile tLauncherSettings* launchData = (tLauncherSettings*)LAUNCH_DATA;
+
+volatile int language = -1;
+volatile bool scfgUnlock = false;
+volatile bool twlMode = false;
+volatile bool twlCLK = false;
+volatile bool TWLVRAM = false;
+volatile bool debugMode = false;
+volatile bool consoleInit = false;
 
 static char TXT_STATUS[] = "STATUS: ";
 static char TXT_ERROR[] = "ERROR: ";
@@ -159,14 +161,16 @@ Written by Darkain, modified by Chishm
 void arm9_main (void) {
 			
 	register int i;
-		
-	if (tmpData->scfgUnlock == 0x01)scfgUnlock = true;
-	if (tmpData->twlMode == 0x01)TWLMODE = true;
-	if (tmpData->twlVRAM == 0x01)TWLVRAM = true;
-	if (tmpData->twlCLK == 0x01)TWLCLK = true;
-	if (tmpData->debugMode == 0x01)debugMode = true;
 	
-	if (TWLMODE) {
+	
+	if (launchData->language != 0xFF)language = (u8)launchData->language;
+	if (launchData->scfgUnlock == 0x01)scfgUnlock = true;
+	if (launchData->twlMode == 0x01)twlMode = true;
+	if (launchData->twlVRAM == 0x01)TWLVRAM = true;
+	if (launchData->twlCLK == 0x01)twlCLK = true;
+	if (launchData->debugMode == 0x01)debugMode = true;
+	
+	if (twlMode) {
 		*((vu32*)REG_MBK1)=0x8D898581;
 		*((vu32*)REG_MBK2)=0x8C888480;
 		*((vu32*)REG_MBK3)=0x9C989490;
@@ -302,8 +306,8 @@ void arm9_main (void) {
 	videoSetModeSub(0);
 	REG_POWERCNT  = 0x820F;
 	
-	if (!TWLCLK)REG_SCFG_CLK = 0x80;
-	if (TWLMODE) {
+	if (!twlCLK)REG_SCFG_CLK = 0x80;
+	if (twlMode) {
 		REG_SCFG_EXT = 0x82073100;
 		REG_SCFG_RST = 1;
 	}

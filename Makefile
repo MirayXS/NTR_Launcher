@@ -13,15 +13,19 @@ export TARGET		:=	NTR_Launcher
 export TOPDIR		:=	$(CURDIR)
 
 export VERSION_MAJOR	:= 2
-export VERSION_MINOR	:= 7
+export VERSION_MINOR	:= 9
 export VERSTRING	:=	$(VERSION_MAJOR).$(VERSION_MINOR)
 
-.PHONY: bootloader clean arm7/$(TARGET).elf arm9/$(TARGET).elf
+# specify a directory which contains the nitro filesystem
+# this is relative to the Makefile
+NITRO_FILES := CartFiles
+
+.PHONY: bootloader ndsbootloader clean arm7/$(TARGET).elf arm9/$(TARGET).elf
 
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-all: bootloader $(TARGET).nds
+all: bootloader ndsbootloader $(TARGET).nds
 
 dist:	all
 	@mkdir -p debug
@@ -31,7 +35,8 @@ dist:	all
 $(TARGET).nds:	$(TARGET).arm7 $(TARGET).arm9
 	ndstool	-c $(TARGET).nds -7 $(TARGET).arm7.elf -9 $(TARGET).arm9.elf \
 			-b $(CURDIR)/icon.bmp "NTR Launcher;Slot-1 Launcher;Apache Thunder & RocketRobz" \
-			-g KKGP 01 "NTR Launcher" -z 80040000 -u 00030004 -a 00000138 -p 0001
+			-g KKGP 01 "NTR Launcher" -z 80040000 -u 00030004 -a 00000138 -p 0001 \
+			-d $(NITRO_FILES)
 	@cp $(TARGET).nds 00000000.app
 
 $(TARGET).arm7	: arm7/$(TARGET).elf
@@ -58,7 +63,9 @@ clean:
 	@rm -fr $(TARGET).arm7.elf
 	@rm -fr $(TARGET).arm9.elf
 	@rm -fr 00000000.app
+	@rm -fr $(TARGET).cia
 	@$(MAKE) -C bootloader clean
+	@$(MAKE) -C ndsbootloader clean
 	@$(MAKE) -C arm9 clean
 	@$(MAKE) -C arm7 clean
 
@@ -67,4 +74,7 @@ data:
 
 bootloader: data
 	@$(MAKE) -C bootloader
+	
+ndsbootloader: data
+	@$(MAKE) -C ndsbootloader
 

@@ -33,6 +33,7 @@ void CartridgePromptNoHS (void);
 void BootSplashDS (bool HealthandSafety_MSG, int language);
 void FadeFX (void);
 void ErrorNoCard (void);
+void SimpleSplashInit(void);
 void BootSplashInit (bool UseNTRSplash, bool HealthandSafety_MSG, int language, bool DisplayErrorSplash);
 
 #ifdef __cplusplus

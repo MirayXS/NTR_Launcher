@@ -20,12 +20,13 @@
 #define LAUNCH_ENGINE_H
 
 #include <nds/ndstypes.h>
+#include "launcherData.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void runLaunchEngine (int language, bool scfgUnlock, bool TWLMODE, bool TWLCLK, bool TWLVRAM, bool debugMode);
+void runLaunchEngine (tLauncherSettings launchdata);
 
 #ifdef __cplusplus
 }
