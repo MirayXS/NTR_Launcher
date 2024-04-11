@@ -36,8 +36,30 @@
 #include "nds_loader_arm9.h"
 #include "launcherData.h"
 #include "../source/launch_engine.h"
+#include "read_card.h"
+#include "nds_card.h"
 
 using namespace std;
+
+ALIGN(4) sNDSHeaderExt NTRHeader;
+
+static void DoWait(int waitTime = 30){
+	for (int i = 0; i < waitTime; i++)swiWaitForVBlank();
+};
+
+static void DoCardInit() {
+	switch (REG_SCFG_MC) {
+		case 0x10: { enableSlot1(); DoWait(10);	}break;
+		case 0x11: { enableSlot1();	DoWait(10);	}break;
+	}
+	// Do cart init stuff to wake cart up. DLDI init may fail otherwise!
+	CardReset(true);
+	cardReadHeader((u8*)&NTRHeader);
+	CardReset(false);
+	// tonccpy(gameTitle, NTRHeader.header.gameTitle, 12);
+	// tonccpy(gameCode, NTRHeader.header.gameCode, 4);
+	DoWait(25);
+}
 
 
 static void InitGUI(void) {
@@ -94,6 +116,12 @@ static int FileBrowser(tLauncherSettings launchdata) {
 		argarray.clear();
 	}
 	if (cartSelected) {
+		if (cartInsertedOnBoot) { 
+			DoCardInit(); // Currently required for bootlaoder to succeed with card init.
+		} else {
+			// Give launch soundfx time to finish
+			DoWait(40);
+		}
 		runLaunchEngine(launchdata);	
 	}
 	return stop();

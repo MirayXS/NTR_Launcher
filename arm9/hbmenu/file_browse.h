@@ -25,8 +25,10 @@
 #include <string>
 #include <vector>
 
+extern bool cartInsertedOnBoot;
+
 std::string browseForFile (const std::vector<std::string>& extensionList);
 
 
-
 #endif //FILE_BROWSE_H
+

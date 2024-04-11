@@ -46,6 +46,8 @@
 
 using namespace std;
 
+static ALIGN(4) sNDSHeaderExt ntrHeader;
+
 struct DirEntry {
 	string name;
 	bool isDirectory;
@@ -99,14 +101,13 @@ void InitAudio() {
 	audioReady = true;
 }
 
-
-static ALIGN(4) sNDSHeaderExt ntrHeader;
-
 static bool cardInserted = false;
 static bool cardLoaded = false;
 static bool initialLoad = true;
 
 extern bool cartSelected;
+
+bool cartInsertedOnBoot = false;
 
 
 static void cartCheck() {
@@ -114,11 +115,13 @@ static void cartCheck() {
 		case 0x10: {
 			if (!cardInserted)cardInserted = true; 
 			initialLoad = false;
+			if (cartInsertedOnBoot)cartInsertedOnBoot = false;
 		}break;
 		case 0x11: { 
 			cardInserted = false; 
 			initialLoad = false;
 			if (cartSelected)cartSelected = false;
+			if (cartInsertedOnBoot)cartInsertedOnBoot = false;
 		}break;
 		case 0x18: {
 			cardInserted = true;
@@ -131,6 +134,7 @@ static void cartCheck() {
 			if (cartSelected)cartSelected = false;
 			ToggleBackground();
 		}
+		if (cartInsertedOnBoot)cartInsertedOnBoot = false;
 		if (cartSelected)cartSelected = false;
 		return;
 	}
@@ -139,6 +143,7 @@ static void cartCheck() {
 		cartIconUpdate(0, initialLoad);
 		initialLoad = false;
 		cardLoaded = true;
+		cartInsertedOnBoot = true;
 	} else if (cardInserted && !cardLoaded){
 		cardInit(&ntrHeader);
 		for (int i = 0; i < 25; i++)swiWaitForVBlank();
@@ -306,15 +311,12 @@ string browseForFile (const vector<string>& extensionList) {
 			}
 		}
 		
-
 		if (cartSelected) {
-			
 			if (pressed & KEY_UP)mmEffectEx(&sfxWrong);
 			if (pressed & KEY_DOWN)mmEffectEx(&sfxWrong);
 			if (pressed & KEY_LEFT)mmEffectEx(&sfxWrong);
 			if (pressed & KEY_RIGHT)mmEffectEx(&sfxWrong);
-			
-			
+				
 			if ((pressed & KEY_A)) {
 				if (cardLoaded) {
 					mmEffectEx(&sfxLaunch);
