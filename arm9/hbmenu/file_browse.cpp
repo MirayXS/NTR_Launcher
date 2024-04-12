@@ -294,6 +294,7 @@ string browseForFile (const vector<string>& extensionList) {
 					PlayLaunchSFX();
 					// Clear the screen
 					consoleClear();
+					for (int i = 0; i < 32; i++)swiWaitForVBlank(); // Give Launch sfx time to finish.
 					// Return the chosen file
 					return entry->name;
 				}

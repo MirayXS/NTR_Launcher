@@ -189,11 +189,9 @@ static int BrowserUI(tLauncherSettings launchdata) {
 			launchdata.twlCLK = 0x00;
 			launchdata.twlVRAM = 0x00;
 		}
-		// Give launch soundfx time to finish
-		DoWait(50);
+		// Give launch soundfx time to finish if card Init already occured.
+		if (!cartInsertedOnBoot)DoWait(29);
 		runLaunchEngine(launchdata);
-	} else {
-		DoWait(50);
 	}
 	return stop();
 }
