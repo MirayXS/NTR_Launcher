@@ -2,8 +2,9 @@
 *.app
 *.exe
 *.cia
-*.nds
+/*.nds
 *.app
+*.tmd
 *.o
 *.arm7
 Thumbs.db
