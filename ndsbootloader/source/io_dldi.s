@@ -19,6 +19,7 @@
  If you use this code, please give due credit and email me about your
  project at chishm@hotmail.com
 ------------------------------------------------------------------*/
+
 @---------------------------------------------------------------------------------
 	.align	4
 	.arm
@@ -43,9 +44,9 @@ _dldi_start:
 #endif
 	.asciz	" Chishm"		@ Identifying Magic string (8 bytes with null terminator)
 	.byte	0x01			@ Version number
-	.byte	0x1a		@ 32KiB	@ Log [base-2] of the size of this driver in bytes.
+	.byte	0x0e		@ 16KiB	@ Log [base-2] of the size of this driver in bytes.
 	.byte	0x00			@ Sections to fix
-	.byte 	0x1a		@ 32KiB	@ Log [base-2] of the allocated space in bytes.
+	.byte 	0x0e		@ 16KiB	@ Log [base-2] of the allocated space in bytes.
 	
 @---------------------------------------------------------------------------------
 @ Text identifier - can be anything up to 47 chars + terminating null -- 32 bytes
@@ -93,7 +94,7 @@ _DLDI_shutdown:
 	.align
 	.pool
 
-	.space (_dldi_start + 32768) - .	@ Fill to 32KiB
+	.space (_dldi_start + 16384) - .	@ Fill to 16KiB
 
 _dldi_end:
 	.end

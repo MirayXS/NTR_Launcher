@@ -51,7 +51,7 @@ static char gameCode[5] = {0};
 static bool nitroFSMounted = false;
 static ALIGN(4) sNDSHeaderExt ntrHeader;
 
-const char* PROGVERSION = "3.0";
+const char* PROGVERSION = "3.1";
 
 off_t getFileSize(const char *fileName) {
     FILE* fp = fopen(fileName, "rb");
@@ -75,7 +75,7 @@ void DisplayText(const char* text, bool clear = false, bool noText = false){
 	if (clear)consoleClear();
 	printf("--------------------------------\n");
 	printf("----[NTR Launcher Debug Mode]---\n");
-	printf("----------[Version: 3.0]--------\n");
+	printf("----------[Version: 3.1]--------\n");
 	printf("--------------------------------\n\n");
 	if (!noText)printf(text);
 }
@@ -114,17 +114,18 @@ bool DoCardInit(bool DebugMode, bool fastBoot) {
 		case 0x11: { enableSlot1();	DoWait(10);	FastBoot = false; }break;
 	}
 	// Do cart init stuff to wake cart up. DLDI init may fail otherwise!
-	if (FastBoot) {
+	/*if (FastBoot) {
 		cardInitShort(&ntrHeader);
 		tonccpy(gameTitle, ntrHeader.gameTitle, 12);
 		tonccpy(gameCode, ntrHeader.gameCode, 4);
-	} else {
-		CardReset(true);
-		cardReadHeader((u8*)&ndsHeader);
-		CardReset(false);
-		tonccpy(gameTitle, ndsHeader.header.gameTitle, 12);
-		tonccpy(gameCode, ndsHeader.header.gameCode, 4);
-	}
+	} else {*/
+	CardReset(true);
+	cardReadHeader((u8*)&ndsHeader);
+	CardReset(false);
+	tonccpy(gameTitle, ndsHeader.header.gameTitle, 12);
+	tonccpy(gameCode, ndsHeader.header.gameCode, 4);
+	// cardInit(&ntrHeader);
+	// }
 	if (DebugMode) {
 		DisplayText("CLR", true, true);
 		iprintf("Detected Cart Name: %12s \n", gameTitle);
@@ -177,7 +178,7 @@ int main() {
 	tonccpy ((u32*)CartHeaderCopy, (u32*)InitialCartHeader, 0x200);
 	
 	int language = -1;
-	bool scfgunlock = false;
+	bool scfgunlock = true;
 	bool twlmode = false;
 	bool twlclk = false;
 	bool twlvram = false;
@@ -190,9 +191,11 @@ int main() {
 	bool useNTRSplash = true;
 	bool healthAndSafety_MSG = true;
 	
-	bool fatInit = fatMountSimple("sd", get_io_dsisd());
+	bool fatInit = false;
 	bool nitroInit = false;
 
+#ifndef _NoFATINIT	
+	fatInit = fatMountSimple("sd", get_io_dsisd());
 	if (fatInit) {
 		if(access("sd:/NTR_Launcher", F_OK) != 0)mkdir("sd:/NTR_Launcher", 0777);
 		nitroInit = MountNitroFS();
@@ -228,6 +231,7 @@ int main() {
 			language = ntrlauncher_config.GetInt("NTRLAUNCHER", "LANGUAGE", -1);
 		}
 	}
+#endif
 
 	scanKeys();
 	swiWaitForVBlank();
@@ -239,7 +243,7 @@ int main() {
 	if (!autoBoot)stage2Menu = true;
 	// if (fastBoot)LaunchData.fastBoot = 0x01;
 		
-	if (keysDown() & KEY_B) {
+	if ((keysDown() & KEY_B) && fatInit) {
 		if (stage2Menu) { stage2Menu = false; } else { stage2Menu = true; }
 	}
 	
@@ -251,7 +255,7 @@ int main() {
 		if ((keysHeld() & KEY_L) && (keysHeld() & KEY_R)) {
 			debugmode = true;
 		} else if (keysDown() & KEY_L) {
-			twlclk = false; twlvram = true; scfgunlock = false; twlmode = false;
+			twlclk = false; twlvram = false; scfgunlock = false; twlmode = false;
 		} else if (keysDown() & KEY_R) {
 			twlclk = true; twlvram = true; scfgunlock = true; twlmode = true;
 		}
@@ -302,6 +306,8 @@ int main() {
 			LaunchData.twlCLK = 0x00;
 			LaunchData.twlVRAM = 0x00;
 			LaunchData.twlMode = 0x00;
+			if (!useAnimatedSplash)SimpleSplashInit();
+			cardInit(&ntrHeader);
 		}
 		while(1) {
 			// If SCFG_MC is returning as zero/null, this means SCFG_EXT registers are locked on arm9 or user attempted to run this while in NTR mode.

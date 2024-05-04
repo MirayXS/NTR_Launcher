@@ -74,16 +74,17 @@ static void DoWait(int waitTime = 30) { for (int i = 0; i < waitTime; i++)swiWai
 
 static void DoCardInit() {
 	switch (REG_SCFG_MC) {
-		case 0x10: { enableSlot1(); DoWait(10);	}break;
-		case 0x11: { enableSlot1();	DoWait(10);	}break;
+		case 0x10: { enableSlot1(); DoWait(15);	}break;
+		case 0x11: { enableSlot1();	DoWait(15);	}break;
 	}
 	// Do cart init stuff to wake cart up. DLDI init may fail otherwise!
 	CardReset(true);
 	cardReadHeader((u8*)&ntrHeader);
 	CardReset(false);
+	// cardInit(&ntrHeader);
 	tonccpy(gameTitle, ntrHeader.gameTitle, 12);
 	// tonccpy(gameCode, ntrHeader.gameCode, 4);
-	DoWait(25);
+	// DoWait(25);
 }
 
 
@@ -110,10 +111,8 @@ static void InitGUI(void) {
 }
 
 static int stop(void) {
-	while (1) {
-		scanKeys();
-		while (!keysDown())swiWaitForVBlank();
-	}
+	while (keysDown()) { swiWaitForVBlank(); scanKeys(); }
+	while (!keysDown()) { swiWaitForVBlank(); scanKeys(); }
 	return 0;
 }
 
@@ -180,7 +179,6 @@ static int BrowserUI(tLauncherSettings launchdata) {
 		argarray.clear();
 	}
 	if (cartSelected) {
-		if (cartInsertedOnBoot)DoCardInit(); // Currently required for bootlaoder to succeed with card init.
 		// DS-Xtreme does not like running in TWL clock speeds.
 		// (write function likely goes too fast and semi-bricks hidden sector region randomly when using official launcher)
 		if (!memcmp(gameTitle, "D!S!XTREME", 9)) {
@@ -188,9 +186,12 @@ static int BrowserUI(tLauncherSettings launchdata) {
 			launchdata.twlMode = 0x00;
 			launchdata.twlCLK = 0x00;
 			launchdata.twlVRAM = 0x00;
+			cardInit(&ntrHeader);
+		} else {
+			if (cartInsertedOnBoot)DoCardInit(); // Currently required for bootlaoder to succeed with card init.
+			// Give launch soundfx time to finish if card Init already occured.
+			if (!cartInsertedOnBoot)DoWait(29);
 		}
-		// Give launch soundfx time to finish if card Init already occured.
-		if (!cartInsertedOnBoot)DoWait(29);
 		runLaunchEngine(launchdata);
 	}
 	return stop();

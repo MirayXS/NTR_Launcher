@@ -41,7 +41,6 @@ Helpful information:
 #include <nds/memory.h>
 #include <nds/arm7/audio.h>
 #include "fat.h"
-#include "dldi_patcher.h"
 #include "card.h"
 #include "boot.h"
 #include "sdmmc.h"
@@ -162,17 +161,15 @@ void passArgs_ARM7 (void) {
 
 	argDst = (u32*)((ARM9_DST + ARM9_LEN + 3) & ~3);		// Word aligned
 
-	if (dsiMode && (*(u8*)(NDS_HEAD + 0x012) & BIT(1)))
-	{
+	/* if (dsiMode && (*(u8*)(NDS_HEAD + 0x012) & BIT(1)))	{
 		u32 ARM9i_DST = *((u32*)(TWL_HEAD + 0x1C8));
 		u32 ARM9i_LEN = *((u32*)(TWL_HEAD + 0x1CC));
-		if (ARM9i_LEN)
-		{
+		if (ARM9i_LEN) {
 			u32* argDst2 = (u32*)((ARM9i_DST + ARM9i_LEN + 3) & ~3);		// Word aligned
 			if (argDst2 > argDst)
 				argDst = argDst2;
 		}
-	}
+	}*/
 
 	copyLoop(argDst, argSrc, argSize);
 
@@ -266,7 +263,7 @@ void loadBinary_ARM7 (u32 fileCluster) {
 	ndsHeader[0x024>>2] = 0;
 	dmaCopyWords(3, (void*)ndsHeader, (void*)NDS_HEAD, 0x170);
 
-	if (dsiMode && (ndsHeader[0x10>>2]&BIT(16+1))) {
+	/*if (dsiMode && (ndsHeader[0x10>>2]&BIT(16+1))) {
 		// Read full TWL header
 		fileRead((char*)TWL_HEAD, fileCluster, 0, 0x1000);
 
@@ -279,7 +276,7 @@ void loadBinary_ARM7 (u32 fileCluster) {
 
 		if (ARM9i_LEN)fileRead(ARM9i_DST, fileCluster, ARM9i_SRC, ARM9i_LEN);
 		if (ARM7i_LEN)fileRead(ARM7i_DST, fileCluster, ARM7i_SRC, ARM7i_LEN);
-	}
+	}*/
 }
 
 /*-------------------------------------------------------------------------
@@ -380,11 +377,6 @@ int main (void) {
 
 	// Load the NDS file
 	loadBinary_ARM7(fileCluster);
-
-#ifndef NO_DLDI
-	// Patch with DLDI if desired
-	if (wantToPatchDLDI)dldiPatchBinary ((u8*)((u32*)NDS_HEAD)[0x0A], ((u32*)NDS_HEAD)[0x0B]);
-#endif
 
 #ifndef NO_SDMMC
 	if (dsiSD && dsiMode) {

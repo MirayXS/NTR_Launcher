@@ -320,10 +320,10 @@ int cardInit (sNDSHeaderExt* ndsHeader) {
 		// Reset card slot
 		if(REG_SCFG_MC != 0x11){
 			disableSlot1();
-			for(i = 0; i < 30; i++) { swiWaitForVBlank(); }
+			for(i = 0; i < 15; i++)swiWaitForVBlank();
 		}
 		enableSlot1();
-		for(i = 0; i < 15; i++) { swiWaitForVBlank(); }
+		for(i = 0; i < 10; i++)swiWaitForVBlank();
 		// Dummy command sent after card reset
 		cardParamCommand (CARD_CMD_DUMMY, 0, CARD_ACTIVATE | CARD_nRESET | CARD_CLK_SLOW | CARD_BLK_SIZE(1) | CARD_DELAY1(0x1FFF) | CARD_DELAY2(0x3F), NULL, 0);
 	}
@@ -559,14 +559,14 @@ void cardRead (u32 src, void* dest, bool nandSave) {
 		// Read header
 		tonccpy (dest, (u8*)headerData + src, 0x200);
 		return;
-	} else if ((src < CARD_SECURE_AREA_OFFSET) && !noSlotCrypto) {
+	} else if (!noSlotCrypto && (src < CARD_SECURE_AREA_OFFSET)) {
 		toncset (dest, 0, 0x200);
 		return;
-	} else if ((src < CARD_DATA_OFFSET) && !noSlotCrypto) {
+	} else if (!noSlotCrypto && (src < CARD_DATA_OFFSET)) {
 		// Read data from secure area
 		tonccpy (dest, (u8*)secureArea + src - CARD_SECURE_AREA_OFFSET, 0x200);
 		return;
-	} else if ((ndsHeader->unitCode != 0) && (src >= ndsHeader->arm9iromOffset) && (src < ndsHeader->arm9iromOffset+CARD_SECURE_AREA_SIZE)) {
+	} else if (!noSlotCrypto && (ndsHeader->unitCode != 0) && (src >= ndsHeader->arm9iromOffset) && (src < ndsHeader->arm9iromOffset+CARD_SECURE_AREA_SIZE)) {
 		// Read data from secure area
 		tonccpy (dest, (u8*)secureArea + src - ndsHeader->arm9iromOffset, 0x200);
 		return;
@@ -586,7 +586,7 @@ void cardRead (u32 src, void* dest, bool nandSave) {
 
 	cardParamCommand (CARD_CMD_DATA_READ, src, portFlags | CARD_ACTIVATE | CARD_nRESET | CARD_BLK_SIZE(1), dest, 0x200/sizeof(u32));
 
-	if (src > ndsHeader->romSize && !(nandSave && src >= cardNandRwStart) && !noSlotCrypto)switchToTwlBlowfish(ndsHeader);
+	if (!noSlotCrypto && (src > ndsHeader->romSize) && !(nandSave && src >= cardNandRwStart))switchToTwlBlowfish(ndsHeader);
 }
 
 void cardReadAlt (u32 src, void* dest, size_t size) {

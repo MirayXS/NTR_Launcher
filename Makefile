@@ -12,8 +12,8 @@ include $(DEVKITARM)/ds_rules
 export TARGET		:=	NTR_Launcher
 export TOPDIR		:=	$(CURDIR)
 
-export VERSION_MAJOR	:= 2
-export VERSION_MINOR	:= 9
+export VERSION_MAJOR	:= 3
+export VERSION_MINOR	:= 1
 export VERSTRING	:=	$(VERSION_MAJOR).$(VERSION_MINOR)
 
 # specify a directory which contains the nitro filesystem

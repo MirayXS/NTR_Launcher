@@ -52,6 +52,9 @@ static int bg2, bg3;
 static u16 *sprite;
 static u16 *sprite2;
 
+extern tNDSBanner dsCardDefault_bin;
+extern tNDSBanner hbNoIcon_bin;
+
 static tNDSBanner banner;
 static tNDSBanner* cartBanner;
 
@@ -162,10 +165,15 @@ void iconTitleInit (void) {
 	
 	cartBanner = (tNDSBanner*)CartBannerBuffer;
 
+	// Load Default Icons.
+	DC_FlushAll();
+	dmaCopy(hbNoIcon_bin.icon,    sprite,         sizeof(hbNoIcon_bin.icon));
+	dmaCopy(hbNoIcon_bin.palette, SPRITE_PALETTE, sizeof(hbNoIcon_bin.palette));
+	dmaCopy(dsCardDefault_bin.icon, sprite2, 512);
+	dmaCopy(dsCardDefault_bin.palette, (u16*)((u32)SPRITE_PALETTE + 0x20), 0x20);
+
 	// everything's ready :)
-	writeRow (1,"=====================", false);
-	writeRow (2,"==>> Loading ... <<==", false);
-	writeRow (3,"=====================", false);
+	writeRow (2,"     Loading ...     ", false);
 }
 
 
@@ -180,6 +188,9 @@ void iconTitleUpdate (int isdir, const std::string& name) {
 		writeRow (2, "[directory]", false);
 		// icon
 		clearIcon();
+		DC_FlushAll();
+		dmaCopy(hbNoIcon_bin.icon,    sprite,         sizeof(hbNoIcon_bin.icon));
+		dmaCopy(hbNoIcon_bin.palette, SPRITE_PALETTE, sizeof(hbNoIcon_bin.palette));
 	} else {
 		std::string ndsPath;
 		if (!argsNdsPath(name, ndsPath)) {
@@ -198,6 +209,9 @@ void iconTitleUpdate (int isdir, const std::string& name) {
 			writeRow (2,"(can't open file!)", false);
 			// icon
 			clearIcon();
+			DC_FlushAll();
+			dmaCopy(hbNoIcon_bin.icon,    sprite,         sizeof(hbNoIcon_bin.icon));
+			dmaCopy(hbNoIcon_bin.palette, SPRITE_PALETTE, sizeof(hbNoIcon_bin.palette));
 			fclose (fp);
 			return;
 		}
@@ -208,6 +222,9 @@ void iconTitleUpdate (int isdir, const std::string& name) {
 			writeRow (2, "(can't read file!)", false);
 			// icon
 			clearIcon();
+			DC_FlushAll();
+			dmaCopy(hbNoIcon_bin.icon,    sprite,         sizeof(hbNoIcon_bin.icon));
+			dmaCopy(hbNoIcon_bin.palette, SPRITE_PALETTE, sizeof(hbNoIcon_bin.palette));
 			fclose (fp);
 			return;
 		}
@@ -217,6 +234,9 @@ void iconTitleUpdate (int isdir, const std::string& name) {
 			writeRow (2, "(no title/icon)", false);
 			// icon
 			clearIcon();
+			DC_FlushAll();
+			dmaCopy(hbNoIcon_bin.icon,    sprite,         sizeof(hbNoIcon_bin.icon));
+			dmaCopy(hbNoIcon_bin.palette, SPRITE_PALETTE, sizeof(hbNoIcon_bin.palette));
 			fclose (fp);
 			return;
 		}
@@ -226,6 +246,9 @@ void iconTitleUpdate (int isdir, const std::string& name) {
 			writeRow (2,"(can't read icon/title!)", false);
 			// icon
 			clearIcon();
+			DC_FlushAll();
+			dmaCopy(hbNoIcon_bin.icon,    sprite,         sizeof(hbNoIcon_bin.icon));
+			dmaCopy(hbNoIcon_bin.palette, SPRITE_PALETTE, sizeof(hbNoIcon_bin.palette));
 			fclose (fp);
 			return;
 		}
@@ -235,10 +258,10 @@ void iconTitleUpdate (int isdir, const std::string& name) {
 		
 		// turn unicode into ascii (kind of)
 		// and convert 0x0A into 0x00
-		char *p = (char*)banner.titles[0];
+		char *p = (char*)banner.titles[1];
 		int rowOffset = 1;
 		int lineReturns = 0;
-		for (size_t i = 0; i < sizeof(banner.titles[0]); i = i+2) {
+		for (size_t i = 0; i < sizeof(banner.titles[1]); i = i+2) {
 			if ((p[i] == 0x0A) || (p[i] == 0xFF)) {
 				p[i/2] = 0;
 				lineReturns++;
@@ -273,10 +296,15 @@ void cartIconUpdate (u32 BannerOffset, bool readExistingBanner) {
 		case 0x0000: {
 			clearCartIcon(false);
 			writeRow (1,"(invalid icon/title!)", true);
+			DC_FlushAll();
+			dmaCopy(dsCardDefault_bin.icon, sprite2, 512);
+			dmaCopy(dsCardDefault_bin.palette, (u16*)((u32)SPRITE_PALETTE + 0x20), 0x20);
 			return;
 		}break;
 		case 0xFFFF: {
 			clearCartIcon(false);
+			dmaCopy(dsCardDefault_bin.icon, sprite2, 512);
+			dmaCopy(dsCardDefault_bin.palette, (u16*)((u32)SPRITE_PALETTE + 0x20), 0x20);
 			writeRow (1,"(invalid icon/title!)", true);
 			return;
 		}break;
@@ -284,10 +312,10 @@ void cartIconUpdate (u32 BannerOffset, bool readExistingBanner) {
 			clearCartIcon(false);
 			// turn unicode into ascii (kind of)
 			// and convert 0x0A into 0x00
-			char *p = (char*)cartBanner->titles[0];
+			char *p = (char*)cartBanner->titles[1];
 			int rowOffset = 0;
 			int lineReturns = 0;
-			for (size_t i = 0; i < sizeof(cartBanner->titles[0]); i = i+2) {
+			for (size_t i = 0; i < sizeof(cartBanner->titles[1]); i = i+2) {
 				if ((p[i] == 0x0A) || (p[i] == 0xFF)) {
 					p[i/2] = 0;
 					lineReturns++;

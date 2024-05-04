@@ -25,11 +25,11 @@ SPECS		:=  specs
 ARCH	:=	-mthumb -mthumb-interwork
 
 CFLAGS	:=	-g -Wall -Os \
-			-mcpu=arm7tdmi -mtune=arm7tdmi -fomit-frame-pointer\
+			-mcpu=arm7tdmi -mtune=arm7tdmi -fomit-frame-pointer \
 			-ffast-math \
 			$(ARCH)
 
-CFLAGS	+=	$(INCLUDE) $(EXTRA_CFLAGS) -DARM7
+CFLAGS	+=	$(INCLUDE) $(EXTRA_CFLAGS) -DARM7 -DNO_DLDI
 
 ASFLAGS	:=	-g $(ARCH) $(EXTRA_CFLAGS) $(INCLUDE)
 LDFLAGS	=	-nostartfiles -T $(TOPDIR)/load2.ld -Wl,-g $(ARCH) -Wl,-Map,$(TARGET).map
