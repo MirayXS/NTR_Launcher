@@ -57,6 +57,7 @@ static const char* NitroSourceFileList[7] = {
 	"nitro:/NTR_Launcher/EZFlashV.nds",
 	"nitro:/NTR_Launcher/R4iGold_Launcher.nds",
 	"nitro:/NTR_Launcher/R4iSDHC_Demon.nds",
+	"nitro:/NTR_Launcher/R4DS_Ultra.nds",
 	"nitro:/NTR_Launcher/TTDS.nds"
 };
 
@@ -67,6 +68,7 @@ static const char* NitroDestFileList[7] = {
 	"sd:/NTR_Launcher/EZFlashV.nds",
 	"sd:/NTR_Launcher/R4iGold_Launcher.nds",
 	"sd:/NTR_Launcher/R4iSDHC_Demon.nds",
+	"sd:/NTR_Launcher/R4DS_Ultra.nds",
 	"sd:/NTR_Launcher/TTDS.nds"
 };
 

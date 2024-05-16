@@ -183,7 +183,21 @@ static void NDSTouchscreenMode() {
 
 void VcountHandler() { inputGetAndSend(); }
 
-void VblankHandler(void) { }
+void VblankHandler(void) { 
+	if (!touchScreenCheck) {
+		if(fifoCheckValue32(FIFO_USER_01)) { 
+			if (cdcReadReg(CDC_SOUND, 0x22) == 0xF0) {
+				// Switch touch mode to NTR
+				*(u16*)0x4004700 = 0x800F;
+				NDSTouchscreenMode();
+				*(u16*)0x4000500 = 0x807F;
+			}
+			REG_GPIO_WIFI |= BIT(8);	// Old NDS-Wifi mode
+			fifoSendValue32(FIFO_USER_02, 1);
+			touchScreenCheck = true;
+		}			
+	}
+}
 
 int main(void) {
 	// read User Settings from firmware
@@ -209,21 +223,6 @@ int main(void) {
 	i2cWriteRegister(0x4A, 0x12, 0x00);	// Press power-button for auto-reset
 	i2cWriteRegister(0x4A, 0x70, 0x01);	// Bootflag = Warmboot/SkipHealthSafety
 
-	while (1) { 
-		if (!touchScreenCheck) {
-			if(fifoCheckValue32(FIFO_USER_01)) { 
-				if (cdcReadReg(CDC_SOUND, 0x22) == 0xF0) {
-					// Switch touch mode to NTR
-					*(u16*)0x4004700 = 0x800F;
-					NDSTouchscreenMode();
-					*(u16*)0x4000500 = 0x807F;
-				}
-				REG_GPIO_WIFI |= BIT(8);	// Old NDS-Wifi mode
-				fifoSendValue32(FIFO_USER_02, 1);
-				touchScreenCheck = true;
-			}			
-		}
-		swiWaitForVBlank(); 
-	}
+	while (1)swiWaitForVBlank();
 }
 
