@@ -156,7 +156,8 @@ u32 cardInit (sNDSHeaderExt* ndsHeader, u32* chipID) {
 
 	// 1st Get ROM Chip ID
 	cardParamCommand (CARD_CMD_HEADER_CHIPID, 0, (ndsHeader->cardControl13 & (CARD_WR|CARD_nRESET|CARD_CLK_SLOW)) | CARD_ACTIVATE | CARD_BLK_SIZE(7), chipID, sizeof(u32));
-
+	while (REG_ROMCTRL & CARD_BUSY);
+	
 	// Adjust card transfer method depending on the most significant bit of the chip ID
 	normalChip = ((*chipID) & 0x80000000) != 0;		// ROM chip ID MSB
 	if (!normalChip)portFlagsKey1 |= CARD_SEC_LARGE;

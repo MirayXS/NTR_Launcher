@@ -50,25 +50,27 @@ static char gameTitle[13] = {0};
 static u8* fileBuffer;
 
 
-static const char* NitroSourceFileList[7] = {
+static const char* NitroSourceFileList[9] = {
 	"nitro:/NTR_Launcher/Acekard2i.nds",
 	"nitro:/NTR_Launcher/ActionReplayDS.nds",
 	"nitro:/NTR_Launcher/DSTwo.nds",
 	"nitro:/NTR_Launcher/EZFlashV.nds",
+	"nitro:/NTR_Launcher/R4DS_Ultra.nds",
+	"nitro:/NTR_Launcher/R4i_SDHC_AVRJ.nds",
 	"nitro:/NTR_Launcher/R4iGold_Launcher.nds",
 	"nitro:/NTR_Launcher/R4iSDHC_Demon.nds",
-	"nitro:/NTR_Launcher/R4DS_Ultra.nds",
 	"nitro:/NTR_Launcher/TTDS.nds"
 };
 
-static const char* NitroDestFileList[7] = {
+static const char* NitroDestFileList[9] = {
 	"sd:/NTR_Launcher/Acekard2i.nds",
 	"sd:/NTR_Launcher/ActionReplayDS.nds",
 	"sd:/NTR_Launcher/DSTwo.nds",
 	"sd:/NTR_Launcher/EZFlashV.nds",
+	"sd:/NTR_Launcher/R4DS_Ultra.nds",
+	"sd:/NTR_Launcher/R4i_SDHC_AVRJ.nds",
 	"sd:/NTR_Launcher/R4iGold_Launcher.nds",
 	"sd:/NTR_Launcher/R4iSDHC_Demon.nds",
-	"sd:/NTR_Launcher/R4DS_Ultra.nds",
 	"sd:/NTR_Launcher/TTDS.nds"
 };
 
@@ -119,9 +121,9 @@ static int stop(void) {
 }
 
 static void CheckFolder() {
-	if (sizeof(NitroSourceFileList) != sizeof(NitroDestFileList))return;
+	// if (sizeof(NitroSourceFileList) != sizeof(NitroDestFileList))return;
 	bool copyNeeded = false;
-	int listSize = 7;
+	int listSize = 8;
 	for (int i = 0; i < listSize; i++) {
 		if (access(NitroDestFileList[i], F_OK) != 0) {
 			copyNeeded = true;

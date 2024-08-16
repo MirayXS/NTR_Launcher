@@ -89,42 +89,57 @@ typedef struct sLauncherSettings {
 #define FW_READ        0x03
 
 void boot_readFirmware (uint32 address, uint8 * buffer, uint32 size) {
-  uint32 index;
-
-  // Read command
-  while (REG_SPICNT & SPI_BUSY);
-  REG_SPICNT = SPI_ENABLE | SPI_CONTINUOUS | SPI_DEVICE_NVRAM;
-  REG_SPIDATA = FW_READ;
-  while (REG_SPICNT & SPI_BUSY);
-
-  // Set the address
-  REG_SPIDATA =  (address>>16) & 0xFF;
-  while (REG_SPICNT & SPI_BUSY);
-  REG_SPIDATA =  (address>>8) & 0xFF;
-  while (REG_SPICNT & SPI_BUSY);
-  REG_SPIDATA =  (address) & 0xFF;
-  while (REG_SPICNT & SPI_BUSY);
-
-  for (index = 0; index < size; index++) {
-    REG_SPIDATA = 0;
-    while (REG_SPICNT & SPI_BUSY);
-    buffer[index] = REG_SPIDATA & 0xFF;
-  }
-  REG_SPICNT = 0;
+	uint32 index;
+	
+	// Read command
+	while (REG_SPICNT & SPI_BUSY);
+	REG_SPICNT = SPI_ENABLE | SPI_CONTINUOUS | SPI_DEVICE_NVRAM;
+	REG_SPIDATA = FW_READ;
+	while (REG_SPICNT & SPI_BUSY);
+	
+	// Set the address
+	REG_SPIDATA =  (address>>16) & 0xFF;
+	while (REG_SPICNT & SPI_BUSY);
+	REG_SPIDATA =  (address>>8) & 0xFF;
+	while (REG_SPICNT & SPI_BUSY);
+	REG_SPIDATA =  (address) & 0xFF;
+	while (REG_SPICNT & SPI_BUSY);
+	
+	for (index = 0; index < size; index++) {
+		REG_SPIDATA = 0;
+		while (REG_SPICNT & SPI_BUSY);
+		buffer[index] = REG_SPIDATA & 0xFF;
+	}
+	REG_SPICNT = 0;
 }
-
 
 static inline void copyLoop (u32* dest, const u32* src, u32 size) {
 	size = (size +3) & ~3;
-	do {
-		*dest++ = *src++;
-	} while (size -= 4);
+	do { *dest++ = *src++; } while (size -= 4);
 }
 
 //#define resetCpu() __asm volatile("\tswi 0x000000\n");
 
+void mpu_reset();
+void mpu_reset_end();
+
 static char boot_nds[] = "fat:/boot.nds";
 static unsigned long argbuf[4];
+
+#ifndef NO_SDMMC
+int sdmmc_sd_readsectors(u32 sector_no, u32 numsectors, void *out);
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Main function
+bool sdmmc_inserted() {	return true; }
+
+bool sdmmc_startup() {
+	sdmmc_controller_init(true);
+	return sdmmc_sdcard_init() == 0;
+}
+
+bool sdmmc_readsectors(u32 sector_no, u32 numsectors, void *out) { return sdmmc_sdcard_readsectors(sector_no, numsectors, out) == 0; }
+#endif
+
 
 /*-------------------------------------------------------------------------
 passArgs_ARM7
@@ -138,10 +153,8 @@ void passArgs_ARM7 (void) {
 	u32* argDst;
 
 	if (!argStart || !argSize) {
-
 		char *arg = boot_nds;
 		argSize = __builtin_strlen(boot_nds);
-
 		if (dsiSD) {
 			arg++;
 			arg[0] = 's';
@@ -157,7 +170,6 @@ void passArgs_ARM7 (void) {
 		ARM9_DST = *((u32*)(NDS_HEAD + 0x038));
 		ARM9_LEN = *((u32*)(NDS_HEAD + 0x03C));
 	}
-
 
 	argDst = (u32*)((ARM9_DST + ARM9_LEN + 3) & ~3);		// Word aligned
 
@@ -238,7 +250,6 @@ void resetMemory_ARM7 (void) {
 
 }
 
-
 void loadBinary_ARM7 (u32 fileCluster) {
 	u32 ndsHeader[0x170>>2];
 
@@ -297,21 +308,6 @@ void startBinary_ARM7 (void) {
 	VoidFn arm7code = *(VoidFn*)(0x2FFFE34);
 	arm7code();
 }
-#ifndef NO_SDMMC
-int sdmmc_sd_readsectors(u32 sector_no, u32 numsectors, void *out);
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// Main function
-bool sdmmc_inserted() {	return true; }
-
-bool sdmmc_startup() {
-	sdmmc_controller_init(true);
-	return sdmmc_sdcard_init() == 0;
-}
-
-bool sdmmc_readsectors(u32 sector_no, u32 numsectors, void *out) { return sdmmc_sdcard_readsectors(sector_no, numsectors, out) == 0; }
-#endif
-void mpu_reset();
-void mpu_reset_end();
 
 int main (void) {
 	

@@ -24,7 +24,7 @@ SPECS		:=  specs
 #---------------------------------------------------------------------------------
 ARCH	:=	-mthumb-interwork -march=armv4t -mtune=arm7tdmi
 
-CFLAGS	:=	-g -Wall -Oz \
+CFLAGS	:=	-g -Wall -O2 \
 			-fomit-frame-pointer \
 			-ffast-math \
 			-Wall -Wextra -Werror \
