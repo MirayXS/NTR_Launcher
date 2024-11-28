@@ -20,7 +20,6 @@
 #define READ_CARD_H
 
 #include <nds/ndstypes.h>
-#include <nds/memory.h>
 #include <stdlib.h>
 
 #define CARD_NDS_HEADER_SIZE (0x200)
@@ -121,8 +120,9 @@ typedef struct {
 	u8 dsi3[0x174];
 } sNDSHeaderExt;
 
-u32 cardInit (sNDSHeaderExt* ndsHeader, u32* chipID);
-void cardRead (u32 src, u32* dest, size_t size);
+// u32 cardGetId();
+u16 cardInit (sNDSHeaderExt* ndsHeader, u32 *chipID);
+void cardRead (sNDSHeaderExt* ndsHeader, u32 src, u32* dest, size_t size);
 // u32 cardInitShort (sNDSHeaderExt* ndsHeader, u32* chipID);
 
 #endif // READ_CARD_H

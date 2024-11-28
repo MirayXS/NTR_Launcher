@@ -49,7 +49,7 @@ static char gameTitle[13] = {0};
 // static char gameCode[7] = {0};
 static char gameCode[5] = {0};
 static bool nitroFSMounted = false;
-static ALIGN(4) sNDSHeaderExt ntrHeader;
+// static ALIGN(4) sNDSHeaderExt ntrHeader;
 
 const char* PROGVERSION = "3.1";
 
@@ -75,7 +75,7 @@ void DisplayText(const char* text, bool clear = false, bool noText = false){
 	if (clear)consoleClear();
 	printf("--------------------------------\n");
 	printf("----[NTR Launcher Debug Mode]---\n");
-	printf("----------[Version: 3.1]--------\n");
+	printf("----------[Version: 3.2]--------\n");
 	printf("--------------------------------\n\n");
 	if (!noText)printf(text);
 }
@@ -110,8 +110,8 @@ bool DoCardInit(bool DebugMode, bool fastBoot) {
 		DisplayText("Loading Cart details.\nPlease Wait...\n", true);
 	}
 	switch (REG_SCFG_MC) {
-		case 0x10: { enableSlot1(); DoWait(10);	FastBoot = false; }break;
-		case 0x11: { enableSlot1();	DoWait(10);	FastBoot = false; }break;
+		case 0x10: { enableSlot1(); DoWait(15);	FastBoot = false; }break;
+		case 0x11: { enableSlot1();	DoWait(15);	FastBoot = false; }break;
 	}
 	// Do cart init stuff to wake cart up. DLDI init may fail otherwise!
 	/*if (FastBoot) {
@@ -121,10 +121,14 @@ bool DoCardInit(bool DebugMode, bool fastBoot) {
 	} else {*/
 	CardReset(true);
 	cardReadHeader((u8*)&ndsHeader);
+	while(REG_ROMCTRL & CARD_BUSY);
 	CardReset(false);
 	tonccpy(gameTitle, ndsHeader.header.gameTitle, 12);
 	tonccpy(gameCode, ndsHeader.header.gameCode, 4);
-	// cardInit(&ntrHeader);
+	/*cardInit((sNDSHeaderExt*)&ndsHeader.header);
+	tonccpy(gameTitle, ndsHeader.header.gameTitle, 12);
+	tonccpy(gameCode, ndsHeader.header.gameCode, 4);
+	CardReset(false);*/
 	// }
 	if (DebugMode) {
 		DisplayText("CLR", true, true);
@@ -170,8 +174,19 @@ int main() {
 	defaultExceptionHandler();
 	
 	sysSetCardOwner(BUS_OWNER_ARM9);
+	
+	if (!isDSiMode()) {
+		InitConsole();
+		printf("--------------------------------\n");
+		printf("----------[NTR Launcher]--------\n");
+		printf("----------[Version: 3.2]--------\n");
+		printf("--------------------------------\n\n");
+		printf("\nError has occured.!\nDSi Mode not detected.\nDS/DS Lite Unsupported!");
+		do { swiWaitForVBlank(); scanKeys(); } while (!keysDown());
+		return 0;
+	}
 		
-	tLauncherSettings LaunchData = { 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF };
+	tLauncherSettings LaunchData = { 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFFFFFFFF };
 
 	// Create backup of Cart header (if present) saved by DSi System Menu. 
 	// It will not survive memory reallocation after dropping to NTR ram spec during bootloader.
@@ -181,6 +196,7 @@ int main() {
 	bool scfgunlock = true;
 	bool twlmode = false;
 	bool twlclk = false;
+	bool twlram = false;
 	bool twlvram = false;
 	bool debugmode = false;
 	// bool fastBoot = false;
@@ -220,6 +236,7 @@ int main() {
 			
 			twlclk = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLCLOCK",0);
 			twlvram = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLVRAM",0);
+			twlram = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLRAM",0);
 			twlmode = ntrlauncher_config.GetInt("NTRLAUNCHER","TWLMODE",0);
 			scfgunlock = ntrlauncher_config.GetInt("NTRLAUNCHER","SCFGUNLOCK",0);
 			useAnimatedSplash = ntrlauncher_config.GetInt("NTRLAUNCHER","ANIMATEDSPLASH",0);
@@ -236,10 +253,19 @@ int main() {
 	scanKeys();
 	swiWaitForVBlank();
 	
+	/*scfgunlock = true;
+	twlmode = true;
+	twlclk = true;
+	twlram = true;
+	twlvram = true;
+	debugmode = true;*/
+	
+	
 	if (scfgunlock)LaunchData.scfgUnlock = 0x01;
 	if (twlmode)LaunchData.twlMode = 0x01;
 	if (twlclk)LaunchData.twlCLK = 0x01;
 	if (twlvram)LaunchData.twlVRAM = 0x01;
+	if (twlram)LaunchData.twlRAM = 0x01;
 	if (!autoBoot)stage2Menu = true;
 	// if (fastBoot)LaunchData.fastBoot = 0x01;
 		
@@ -251,6 +277,8 @@ int main() {
 	
 	if ((REG_SCFG_MC == 0x10) && !stage2Menu) { sysSetCardOwner (BUS_OWNER_ARM9); DoCardInit(false, false); }
 	
+	if (!fatInit)stage2Menu = false;
+	
 	if (!stage2Menu) {
 		if ((keysHeld() & KEY_L) && (keysHeld() & KEY_R)) {
 			debugmode = true;
@@ -261,7 +289,6 @@ int main() {
 		}
 	}
 	
-	if (!fatInit)stage2Menu = false;
 	
 	ConsoleInit = debugmode;
 	if (stage2Menu) { ConsoleInit = false; debugmode = false; }
@@ -307,7 +334,9 @@ int main() {
 			LaunchData.twlVRAM = 0x00;
 			LaunchData.twlMode = 0x00;
 			if (!useAnimatedSplash)SimpleSplashInit();
-			cardInit(&ntrHeader);
+			// cardInit(&ntrHeader);
+		} else {
+			if (ndsHeader.header.unitCode & BIT(1))LaunchData.isTWLSRL = 0x01;			
 		}
 		while(1) {
 			// If SCFG_MC is returning as zero/null, this means SCFG_EXT registers are locked on arm9 or user attempted to run this while in NTR mode.
@@ -320,6 +349,7 @@ int main() {
 				}
 				break;
 			} else {
+				LaunchData.cachedChipID = *(u32*)InitialCartChipID;
 				runLaunchEngine(LaunchData);
 				break;
 			}

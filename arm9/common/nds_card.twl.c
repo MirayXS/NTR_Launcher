@@ -19,16 +19,18 @@
 #include <stddef.h>
 #include <nds.h>
 #include "nds_card.h"
+#include "read_card.h"
 
 void CardReset(bool properReset) {
 	int i;
 	sysSetCardOwner (BUS_OWNER_ARM9);	// Allow arm9 to access NDS cart
 	if (isDSiMode()) { 
 		// Reset card slot
-		disableSlot1();
+		/*disableSlot1();
 		for (i = 0; i < 25; i++) { swiWaitForVBlank(); }
 		enableSlot1();
-		for (i = 0; i < 15; i++) { swiWaitForVBlank(); }
+		for (i = 0; i < 15; i++) { swiWaitForVBlank(); }*/
+		ResetSlot();
 
 		if (!properReset) {
 			// Dummy command sent after card reset
@@ -43,9 +45,9 @@ void CardReset(bool properReset) {
 		for (i = 0; i < 10; i++) { swiWaitForVBlank(); }
 		REG_AUXSPICNT=CARD_CR1_ENABLE|CARD_CR1_IRQ;
 		REG_ROMCTRL=CARD_nRESET|CARD_SEC_SEED;
-		while (REG_ROMCTRL&CARD_BUSY);
+		while (REG_ROMCTRL&CARD_BUSY)swiWaitForVBlank();
 		cardReset();
-		while (REG_ROMCTRL&CARD_BUSY);
+		while (REG_ROMCTRL&CARD_BUSY)swiWaitForVBlank();
 	}
 }
 

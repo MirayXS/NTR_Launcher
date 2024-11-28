@@ -24,8 +24,8 @@ DATA		:=
 #---------------------------------------------------------------------------------
 ARCH	:=	-mthumb-interwork -march=armv4t -mtune=arm7tdmi
 
-CFLAGS	:=	-g -Wall -O2\
-		-fomit-frame-pointer\
+CFLAGS	:=	-g -Wall -O2 \
+		-fomit-frame-pointer \
 		-ffast-math \
 		$(ARCH)
 

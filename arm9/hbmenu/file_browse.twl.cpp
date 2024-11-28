@@ -35,6 +35,8 @@
 #include "iconTitle.h"
 #include "read_card.h"
 #include "audio.h"
+#include "tonccpy.h"
+#include "launcherData.h"
 
 #define SCREEN_COLS 30
 #define ENTRIES_PER_SCREEN 20
@@ -60,18 +62,24 @@ extern bool cartSelected;
 bool cartInsertedOnBoot = false;
 
 
-static void cartCheck() {
+static void cartCheck(tLauncherSettings launchdata) {
 	switch (REG_SCFG_MC) {
 		case 0x10: {
 			if (!cardInserted)cardInserted = true; 
 			initialLoad = false;
-			if (cartInsertedOnBoot)cartInsertedOnBoot = false;
+			if (cartInsertedOnBoot) {
+				cartInsertedOnBoot = false;
+				launchdata.cachedChipID = 0x00000000;
+			}
 		}break;
 		case 0x11: { 
 			cardInserted = false; 
 			initialLoad = false;
 			if (cartSelected)cartSelected = false;
-			if (cartInsertedOnBoot)cartInsertedOnBoot = false;
+			if (cartInsertedOnBoot) {
+				cartInsertedOnBoot = false;
+				launchdata.cachedChipID = 0x00000000;
+			}
 		}break;
 		case 0x18: {
 			cardInserted = true;
@@ -85,10 +93,12 @@ static void cartCheck() {
 		}
 		if (cartInsertedOnBoot)cartInsertedOnBoot = false;
 		if (cartSelected)cartSelected = false;
+		launchdata.cachedChipID = 0x00000000;
 		ToggleBackground(true);
 		return;
 	}
 	if (cardInserted && initialLoad) {
+		launchdata.cachedChipID = *(u32*)0x02FFFC00;
 		cardInitShort(&ntrHeader);
 		cartIconUpdate(0, initialLoad);
 		initialLoad = false;
@@ -97,7 +107,9 @@ static void cartCheck() {
 		ToggleBackground(false);
 	} else if (cardInserted && !cardLoaded){
 		cardInit(&ntrHeader);
-		for (int i = 0; i < 25; i++)swiWaitForVBlank();
+		while(REG_ROMCTRL & CARD_BUSY)swiWaitForVBlank();
+		launchdata.cachedChipID = cardGetId();
+		for (int i = 0; i < 30; i++)swiWaitForVBlank();
 		cartIconUpdate(ntrHeader.bannerOffset, false);
 		ToggleBackground(false);
 		cardLoaded = true;
@@ -202,7 +214,7 @@ void showDirectoryContents (const vector<DirEntry>& dirContents, int startRow) {
 	}
 }
 
-string browseForFile (const vector<string>& extensionList) {
+string browseForFile (const vector<string>& extensionList, tLauncherSettings launchdata) {
 	int pressed = 0;
 	int screenOffset = 0;
 	int fileOffset = 0;
@@ -223,7 +235,7 @@ string browseForFile (const vector<string>& extensionList) {
 
 		// Power saving loop. Only poll the keys once per frame and sleep the CPU if there is nothing else to do
 		do {
-			cartCheck();
+			cartCheck(launchdata);
 			scanKeys();
 			pressed = keysDownRepeat();
 			swiWaitForVBlank();

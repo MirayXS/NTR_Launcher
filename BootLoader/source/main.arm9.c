@@ -40,39 +40,41 @@
 #include "common.h"
 #include "miniconsole.h"
 
-#define LAUNCH_DATA 0x020007F0
-
-volatile int arm9_stateFlag = ARM9_BOOT;
-volatile u32 arm9_errorCode = 0xFFFFFFFF;
-volatile bool arm9_errorClearBG = false;
-volatile bool consoleDebugMode = false;
-volatile u32 arm9_BLANK_RAM = 0;
-volatile u32 defaultFontPalSlot = 0;
+#include "../../arm9/common/launcherData.h"
 
 volatile tLauncherSettings* launchData = (tLauncherSettings*)LAUNCH_DATA;
 
-volatile int language = -1;
-volatile bool scfgUnlock = false;
-volatile bool twlMode = false;
-volatile bool twlCLK = false;
-volatile bool TWLVRAM = false;
-volatile bool debugMode = false;
-volatile bool consoleInit = false;
+ALIGN(4) volatile int arm9_stateFlag = ARM9_BOOT;
+ALIGN(4) volatile u16 arm9_errorCode = 0xFFFF;
+ALIGN(4) volatile u16 consoleDebugMode = 0;
+ALIGN(4) volatile u32 arm9_BLANK_RAM = 0;
+ALIGN(4) volatile u32 defaultFontPalSlot = 0;
+ALIGN(4) volatile u32 arm9_cachedChipID = 0xFFFFFFFF;
 
-static char TXT_STATUS[] = "STATUS: ";
-static char TXT_ERROR[] = "ERROR: ";
-static char ERRTXT_NONE[] = "NONE";
-static char ERRTXT_STS_CLRMEM[] = "CLEAR MEMORY";
-static char ERRTXT_STS_LOAD_BIN[] = "LOAD CART";
-static char ERRTXT_STS_STARTBIN[] = "START BINARY";
-static char ERRTXT_STS_START[] = "BOOTLOADER STARTUP";
-static char ERRTXT_LOAD_NORM[] = "LOAD NORMAL";
-static char ERRTXT_LOAD_OTHR[] = "LOAD OTHER";
-static char ERRTXT_SEC_NORM[] = "SECURE NORMAL";
-static char ERRTXT_SEC_OTHR[] = "SECURE OTHER";
-static char ERRTXT_LOGO_CRC[] = "LOGO CRC";
-static char ERRTXT_HEAD_CRC[] = "HEADER CRC";
-static char NEW_LINE[] = "\n";
+ALIGN(4) volatile u16 language = 0xFFFF;
+ALIGN(4) volatile u16 scfgUnlock = 0;
+ALIGN(4) volatile u16 twlMode = 0;
+ALIGN(4) volatile u16 twlCLK = 0;
+ALIGN(4) volatile u16 isTWLSRL = 0;
+// ALIGN(4) volatile u16 twlVRAM = 0;
+ALIGN(4) volatile u16 twlRAM = 0;
+ALIGN(4) volatile u16 debugMode = 0;
+ALIGN(4) volatile u16 consoleInit = 0;
+
+
+ALIGN(4) const u16 redFont = 0x801B;
+ALIGN(4) const u16 greenFont = 0x8360;
+
+ALIGN(4) char ERRTXT_NONE[14] = "\nSTATUS: NONE";
+ALIGN(4) char ERRTXT_STS_START[22] = "\nSTATUS: LOADER START";
+ALIGN(4) char ERRTXT_STS_CLRMEM[22] = "\nSTATUS: CLEAR MEMORY";
+ALIGN(4) char ERRTXT_STS_LOAD_BIN[19] = "\nSTATUS: LOAD CART";
+ALIGN(4) char ERRTXT_STS_STARTBIN[21] = "\nSTATUS: START BINARY";
+ALIGN(4) char ERRTXT_LOAD_NORM[20] = "\nERROR: LOAD NORMAL";
+ALIGN(4) char ERRTXT_LOAD_OTHR[19] = "\nERROR: LOAD OTHER";
+ALIGN(4) char ERRTXT_SEC_NORM[22] = "\nERROR: SECURE NORMAL";
+ALIGN(4) char ERRTXT_SEC_OTHR[21] = "\nERROR: SECURE OTHER";
+ALIGN(4) char ERRTXT_HEAD_CRC[19] = "\nERROR: HEADER CRC";
 	
 /*-------------------------------------------------------------------------
 External functions
@@ -81,72 +83,58 @@ extern void arm9_clearCache (void);
 extern void arm9_reset (void);
 extern void Print(char *str);
 
+static void waitForVBlank() { while (REG_VCOUNT!=191); while (REG_VCOUNT==191); }
+
 /*-------------------------------------------------------------------------
 arm9_errorOutput
-Displays an error code on screen.
-
-Each box is 2 bits, and left-to-right is most-significant bits to least.
-Red = 00, Yellow = 01, Green = 10, Blue = 11
-
-Written by Chishm
+Displays an error text on screen.
+Rewritten by Apache Thunder.
 --------------------------------------------------------------------------*/
-static void arm9_errorOutput (u32 code) {
-	Print(NEW_LINE);
+static void arm9_errorOutput (u16 code) {
 	switch (code) {
-		case (ERR_NONE) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x8360;
-			Print(TXT_STATUS);
-			Print(ERRTXT_NONE);
+		case ERR_NONE: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = greenFont;
+			Print((char*)ERRTXT_NONE);
 		} break;
-		case (ERR_STS_CLR_MEM) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x8360;
-			Print(TXT_STATUS);
-			Print(ERRTXT_STS_CLRMEM);
+		case ERR_STS_START: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = greenFont;
+			Print((char*)ERRTXT_STS_START);
 		} break;
-		case (ERR_STS_LOAD_BIN) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x8360;
-			Print(TXT_STATUS);
-			Print(ERRTXT_STS_LOAD_BIN);
+		case ERR_STS_CLR_MEM: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = greenFont;
+			Print((char*)ERRTXT_STS_CLRMEM);
 		} break;
-		case (ERR_STS_STARTBIN) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x8360;
-			Print(TXT_STATUS);
-			Print(ERRTXT_STS_STARTBIN);
+		case ERR_STS_LOAD_BIN: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = greenFont;
+			Print((char*)ERRTXT_STS_LOAD_BIN);
 		} break;
-		case (ERR_STS_START) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x8360;
-			Print(TXT_STATUS);
-			Print(ERRTXT_STS_START);
+		case ERR_STS_STARTBIN: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = greenFont;
+			Print((char*)ERRTXT_STS_STARTBIN);
 		} break;
-		case (ERR_LOAD_NORM) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
-			Print(TXT_ERROR);
-			Print(ERRTXT_LOAD_NORM);
+		case ERR_LOAD_NORM: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = redFont;
+			Print((char*)ERRTXT_LOAD_NORM);
 		} break;
-		case (ERR_LOAD_OTHR) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
-			Print(TXT_ERROR);
-			Print(ERRTXT_LOAD_OTHR);
+		case ERR_LOAD_OTHR: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = redFont;
+			Print((char*)ERRTXT_LOAD_OTHR);
 		} break;
-		case (ERR_SEC_NORM) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
-			Print(TXT_ERROR);
-			Print(ERRTXT_SEC_NORM);
+		case ERR_SEC_NORM: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = redFont;
+			Print((char*)ERRTXT_SEC_NORM);
 		} break;
-		case (ERR_SEC_OTHR) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
-			Print(TXT_ERROR);
-			Print(ERRTXT_SEC_OTHR);
+		case ERR_SEC_OTHR: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = redFont;
+			Print((char*)ERRTXT_SEC_OTHR);
 		} break;
-		case (ERR_LOGO_CRC) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
-			Print(TXT_ERROR);
-			Print(ERRTXT_LOGO_CRC);
+		case ERR_HEAD_CRC: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = redFont;
+			Print((char*)ERRTXT_HEAD_CRC);
 		} break;
-		case (ERR_HEAD_CRC) : {
-			BG_PALETTE_SUB[defaultFontPalSlot] = 0x801B;
-			Print(TXT_ERROR);
-			Print(ERRTXT_HEAD_CRC);
+		default: {
+			BG_PALETTE_SUB[defaultFontPalSlot] = greenFont;
+			Print((char*)ERR_NONE);
 		} break;
 	}
 }
@@ -159,26 +147,40 @@ Jumps to the ARM9 NDS binary in sync with the  ARM7
 Written by Darkain, modified by Chishm
 --------------------------------------------------------------------------*/
 void arm9_main (void) {
-			
 	register int i;
 	
+	language = 0xFFFF;
+	scfgUnlock = 0;
+	twlMode = 0;
+	twlCLK = 0;
+	// twlVRAM = 0;
+	twlRAM = 0;
+	isTWLSRL = 0;
+	debugMode = 0;
+	consoleInit = 0;
+
+	if (launchData->language != 0xFF)language = (u16)launchData->language;
+	if (launchData->scfgUnlock > 0)scfgUnlock = 0xFFFF;
+	if (launchData->twlMode > 0)twlMode = 0xFFFF;
+	// if (launchData->twlVRAM > 0)twlVRAM = 0xFFFF;
+	if (launchData->twlRAM > 0)twlRAM = 0xFFFF;
+	if (launchData->twlCLK > 0)twlCLK = 0xFFFF;
+	if (launchData->isTWLSRL > 0)isTWLSRL = 0xFFFF;
+	if (launchData->debugMode > 0)debugMode = 0xFFFF;
+	arm9_cachedChipID = launchData->cachedChipID;
 	
-	if (launchData->language != 0xFF)language = (u8)launchData->language;
-	if (launchData->scfgUnlock == 0x01)scfgUnlock = true;
-	if (launchData->twlMode == 0x01)twlMode = true;
-	if (launchData->twlVRAM == 0x01)TWLVRAM = true;
-	if (launchData->twlCLK == 0x01)twlCLK = true;
-	if (launchData->debugMode == 0x01)debugMode = true;
-	
-	if (twlMode) {
-		*((vu32*)REG_MBK1)=0x8D898581;
-		*((vu32*)REG_MBK2)=0x8C888480;
-		*((vu32*)REG_MBK3)=0x9C989490;
-		*((vu32*)REG_MBK4)=0x8C888480;
-		*((vu32*)REG_MBK5)=0x9C989490;
-		REG_MBK6=0x00000000;
-		REG_MBK7=0x07C03740;
-		REG_MBK8=0x07403700;
+	if ((isTWLSRL > 0) && (twlMode > 0) && (twlRAM > 0)) {
+		*(vu32*)REG_MBK1 = *(u32*)0x02FFE180;
+		*(vu32*)REG_MBK2 = *(u32*)0x02FFE184;
+		*(vu32*)REG_MBK3 = *(u32*)0x02FFE188;
+		*(vu32*)REG_MBK4 = *(u32*)0x02FFE18C;
+		*(vu32*)REG_MBK5 = *(u32*)0x02FFE190;
+		REG_MBK6 = *(u32*)0x02FFE194;
+		REG_MBK7 = *(u32*)0x02FFE198;
+		REG_MBK8 = *(u32*)0x02FFE19C;
+		REG_MBK9 = *(u32*)0x02FFE1AC;
+		WRAM_CR = *(u8*)0x02FFE1AF;
+		scfgUnlock = 0x01;
 	} else {
 		// MBK settings for NTR mode games
 		*((vu32*)REG_MBK1)=0x8D898581;
@@ -200,7 +202,7 @@ void arm9_main (void) {
 	REG_IE = 0;
 	REG_IF = ~0;
 	
-	if (debugMode)arm9_errorCode = ERR_STS_START;
+	if (debugMode > 0)arm9_errorCode = ERR_STS_START;
 
 	// Synchronise start
 	ipcSendState(ARM9_START);
@@ -276,8 +278,8 @@ void arm9_main (void) {
 			}
 			arm9_errorOutput (arm9_errorCode);
 			// Halt after displaying error code
-			while(1);
-		} else if ((arm9_errorCode != ERR_NONE) && debugMode) {
+			while(1)waitForVBlank();
+		} else if ((arm9_errorCode != ERR_NONE) && debugMode > 0) {
 			if (!consoleInit) {
 				BG_PALETTE_SUB[0] = RGB15(31,31,31);
 				BG_PALETTE_SUB[255] = RGB15(0,0,0);
@@ -285,13 +287,12 @@ void arm9_main (void) {
 				miniconsoleSetWindow(5, 11, 24, 1); // Set console position for debug text if/when needed.
 				consoleInit = true;
 			}
-			while(REG_VCOUNT!=191); // Add vblank delay. Arm7 can somtimes go through the status codes pretty quick.
-			while(REG_VCOUNT==191);
+			waitForVBlank();
 			arm9_errorOutput (arm9_errorCode);
 			arm9_errorCode = ERR_NONE;
 		}
 	}
-		
+	
 	VRAM_C_CR = 0x80;
 	// BG_PALETTE_SUB[0] = 0xFFFF;
 	dmaFill((void*)&arm9_BLANK_RAM, BG_PALETTE+1, (2*1024)-2);
@@ -306,14 +307,16 @@ void arm9_main (void) {
 	videoSetModeSub(0);
 	REG_POWERCNT  = 0x820F;
 	
-	if (!twlCLK)REG_SCFG_CLK = 0x80;
-	if (twlMode) {
-		REG_SCFG_EXT = 0x82073100;
-		REG_SCFG_RST = 1;
+	/*if ((twlRAM > 0) && ((twlMode == 0) || (isTWLSRL == 0))) {
+		*((u32*)0x027FF800) = arm9_cachedChipID;	
+		*((u32*)0x027FFC00) = arm9_cachedChipID;
 	}
-	if (!TWLVRAM)REG_SCFG_EXT &= ~(1UL << 13);
-	if (!scfgUnlock)REG_SCFG_EXT &= ~(1UL << 31);
+	*((u32*)0x02FFF800) = arm9_cachedChipID;	
+	*((u32*)0x02FFFC00) = arm9_cachedChipID;*/
 	
+	if (twlCLK == 0) { REG_SCFG_CLK = 0x80; } else { REG_SCFG_CLK = 0x87; };
+	if (scfgUnlock == 0)REG_SCFG_EXT &= ~(1UL << 31);
+
 	arm9_reset();
 }
 

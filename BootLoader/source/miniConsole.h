@@ -7,27 +7,18 @@
 #include <nds/memory.h>
 #include <nds/arm9/background.h>
 
-static int windowX = 0;
-static int windowY = 0;
-static int windowWidth = 32;
-static int windowHeight = 24;
-static int consoleWidth = 32;
-static int tabSize = 3;
-static int cursorX = 0;
-static int cursorY = 0;
-static u16 fontCurPal = 1;
-static u16* fontBgMap = BG_MAP_RAM_SUB(4);
+int windowX = 0;
+int windowY = 0;
+int windowWidth = 32;
+int windowHeight = 24;
+int consoleWidth = 32;
+int tabSize = 3;
+int cursorX = 0;
+int cursorY = 0;
+u16 fontCurPal = 1;
+u16* fontBgMap = BG_MAP_RAM_SUB(4);
 
-static void miniconsoleSetWindow(int x, int y, int width, int height) {
-	windowX = x;
-	windowY = y;
-	windowWidth = width;
-	windowHeight = height;
-	cursorX = 0;
-	cursorY = 0;
-}
-
-void miniNewRow() {
+static void miniNewRow() {
 	cursorY ++;
 	if(cursorY  >= windowHeight)  {
 		int rowCount;
@@ -44,7 +35,7 @@ void miniNewRow() {
 	}
 }
 
-void miniconsolePrintChar(char c) {
+static void miniconsolePrintChar(char c) {
 	if (c==0) return;
 	if(fontBgMap == 0) return;
 	if(cursorX  >= windowWidth) { cursorX = 0; miniNewRow(); }
@@ -76,7 +67,7 @@ void miniconsolePrintChar(char c) {
 	}
 }
 
-void miniconsoleCls(char mode) {
+/*static void miniconsoleCls(char mode) {
 	int i = 0;
 	int colTemp,rowTemp;
 
@@ -122,13 +113,22 @@ void miniconsoleCls(char mode) {
 			break;
 		}
 	}
+}*/
+
+
+void miniconsoleSetWindow(int x, int y, int width, int height) {
+	windowX = x;
+	windowY = y;
+	windowWidth = width;
+	windowHeight = height;
+	cursorX = 0;
+	cursorY = 0;
 }
 
-static void Print(char *str) {
+void Print(char *str) {
 	if (str == 0)return;	
 	while(*str)miniconsolePrintChar(*(str++));
 }
-
 
 #endif // MINICONSOLE_ARM9_H
 

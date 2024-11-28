@@ -27,7 +27,7 @@ MUSIC       :=  audio
 ARCH	:=	-march=armv5te -mtune=arm946e-s -mthumb -mthumb-interwork
 
 CFLAGS	:=	-g -Wall -O2 \
- 			-fomit-frame-pointer\
+ 			-fomit-frame-pointer \
 			-ffast-math \
 			$(ARCH)
 

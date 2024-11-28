@@ -2,6 +2,8 @@
 *.app
 *.exe
 *.cia
+*.rar
+*.zip
 /*.nds
 *.app
 *.tmd

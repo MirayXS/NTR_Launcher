@@ -13,7 +13,7 @@ export TARGET		:=	NTR_Launcher
 export TOPDIR		:=	$(CURDIR)
 
 export VERSION_MAJOR	:= 3
-export VERSION_MINOR	:= 1
+export VERSION_MINOR	:= 2
 export VERSTRING	:=	$(VERSION_MAJOR).$(VERSION_MINOR)
 
 # specify a directory which contains the nitro filesystem
@@ -24,6 +24,7 @@ NITRO_FILES := CartFiles
 
 #---------------------------------------------------------------------------------
 # main targets
+#			-g KKGP 01 "NTR Launcher" -z 80040000 -u 00030004 -a 00000138 -p 0001 \
 #---------------------------------------------------------------------------------
 all: bootloader ndsbootloader $(TARGET).nds
 
@@ -34,8 +35,8 @@ dist:	all
 
 $(TARGET).nds:	$(TARGET).arm7 $(TARGET).arm9
 	ndstool	-c $(TARGET).nds -7 $(TARGET).arm7.elf -9 $(TARGET).arm9.elf \
-			-b $(CURDIR)/icon.bmp "NTR Launcher;Slot-1 Launcher;Apache Thunder & RocketRobz" \
-			-g KKGP 01 "NTR Launcher" -z 80040000 -u 00030004 -a 00000138 -p 0001 \
+			-b $(CURDIR)/icon.bmp "NTR Launcher v$(VERSTRING);Slot-1 Launcher;Apache Thunder & RocketRobz" \
+			-g KKGP 01 "NTR Launcher" -z 80040407 -u 00030004 -a 00000138 -p 0001 \
 			-d $(NITRO_FILES)
 	@cp $(TARGET).nds 00000000.app
 

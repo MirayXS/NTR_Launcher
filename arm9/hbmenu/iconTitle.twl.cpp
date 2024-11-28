@@ -31,6 +31,7 @@
 #include "hbmenu_banner_cartSelected.h"
 #include "hbmenu_banner_noCart.h"
 #include "font6x8.h"
+#include "tonccpy.h"
 #include "read_card.h"
 #include "launcherData.h"
 
@@ -45,18 +46,28 @@
 #define ICON2_POS_X	26
 #define ICON2_POS_Y	132
 
-
 #define TEXT_WIDTH	((22-4)*8/6)
+
+typedef struct sNDSBannerTest {
+	u16 version;			//!< version of the banner.
+	u16 crc;				//!< 16 bit crc/checksum of the banner.
+	u8 reserved[28];
+	u8 iconData[2080];
+} tNDSBannerTest;
+
 
 static int bg2, bg3;
 static u16 *sprite;
 static u16 *sprite2;
 
 extern tNDSBanner dsCardDefault_bin;
+extern tNDSBanner dsCardInvalid_bin;
 extern tNDSBanner hbNoIcon_bin;
 
 static tNDSBanner banner;
 static tNDSBanner* cartBanner;
+
+static u32 CartBannerBuffer[2304];
 
 bool cartSelected = false;
 
@@ -115,6 +126,10 @@ void clearCartIcon(bool clearBannerText) {
 	dmaFillHalfWords(0, sprite2, sizeof(banner.icon)); 
 }
 
+static bool checkBannerCRC(u8* banner) {
+	return (((tNDSBannerTest*)banner)->crc == swiCRC16(0xFFFF, ((tNDSBannerTest*)banner)->iconData, 0x820));
+}
+
 
 void iconTitleInit (void) {
 	// initialize video mode
@@ -162,6 +177,8 @@ void iconTitleInit (void) {
 	// oam can only be updated during vblank
 	swiWaitForVBlank();
 	oamUpdate(&oamMain);
+
+	toncset32(CartBannerBuffer, 0, 0x900);
 	
 	cartBanner = (tNDSBanner*)CartBannerBuffer;
 
@@ -253,6 +270,18 @@ void iconTitleUpdate (int isdir, const std::string& name) {
 			return;
 		}
 
+		if (!checkBannerCRC((u8*)&banner)) {
+			// text
+			writeRow (2,"(invalid icon/title!)", false);
+			// icon
+			clearIcon();
+			DC_FlushAll();
+			dmaCopy(hbNoIcon_bin.icon,    sprite,         sizeof(hbNoIcon_bin.icon));
+			dmaCopy(hbNoIcon_bin.palette, SPRITE_PALETTE, sizeof(hbNoIcon_bin.palette));
+			fclose (fp);
+			return;
+		}
+
 		// close file!
 		fclose (fp);
 		
@@ -287,28 +316,37 @@ void iconTitleUpdate (int isdir, const std::string& name) {
 
 
 void cartIconUpdate (u32 BannerOffset, bool readExistingBanner) {	
+	toncset32(CartBannerBuffer, 0, 0x900);
 	if(readExistingBanner) {
-		cardReadAlt(*(u32*)InitialCartBannerOffset, (u32*)CartBannerBuffer, 0x1000);
+		cardReadAlt(*(u32*)InitialCartBannerOffset, (u32*)CartBannerBuffer, 0x2400);
 	} else {
-		cardReadAlt(BannerOffset, (u32*)CartBannerBuffer, 0x1000);
+		cardReadAlt(BannerOffset, (u32*)CartBannerBuffer, 0x2400);
 	}
 	switch (cartBanner->crc) {
 		case 0x0000: {
 			clearCartIcon(false);
 			writeRow (1,"(invalid icon/title!)", true);
 			DC_FlushAll();
-			dmaCopy(dsCardDefault_bin.icon, sprite2, 512);
-			dmaCopy(dsCardDefault_bin.palette, (u16*)((u32)SPRITE_PALETTE + 0x20), 0x20);
+			dmaCopy(dsCardInvalid_bin.icon, sprite2, 512);
+			dmaCopy(dsCardInvalid_bin.palette, (u16*)((u32)SPRITE_PALETTE + 0x20), 0x20);
 			return;
-		}break;
+		} break;
 		case 0xFFFF: {
 			clearCartIcon(false);
-			dmaCopy(dsCardDefault_bin.icon, sprite2, 512);
-			dmaCopy(dsCardDefault_bin.palette, (u16*)((u32)SPRITE_PALETTE + 0x20), 0x20);
+			dmaCopy(dsCardInvalid_bin.icon, sprite2, 512);
+			dmaCopy(dsCardInvalid_bin.palette, (u16*)((u32)SPRITE_PALETTE + 0x20), 0x20);
 			writeRow (1,"(invalid icon/title!)", true);
 			return;
 		}break;
 		default: {
+			if (!checkBannerCRC((u8*)cartBanner)) {
+				clearCartIcon(false);
+				dmaCopy(dsCardInvalid_bin.icon, sprite2, 512);
+				dmaCopy(dsCardInvalid_bin.palette, (u16*)((u32)SPRITE_PALETTE + 0x20), 0x20);
+				writeRow (1,"(invalid icon/title!)", true);
+				return;
+			}
+			
 			clearCartIcon(false);
 			// turn unicode into ascii (kind of)
 			// and convert 0x0A into 0x00
@@ -326,11 +364,7 @@ void cartIconUpdate (u32 BannerOffset, bool readExistingBanner) {
 			
 			// Recenter text to center row if less then 2 rows of text.
 			// Default offset 0 instead of 1 since no NDS file name for this to account for.
-			if (lineReturns < 2 && lineReturns != 1) {
-				rowOffset = 1;
-			} else if (lineReturns == 1) {
-				rowOffset = 0;
-			}
+			if (lineReturns < 2 && lineReturns != 1) { rowOffset = 1; } else if (lineReturns == 1) { rowOffset = 0; }
 			
 			// text
 			for (size_t i = 0; i < 3; ++i) {

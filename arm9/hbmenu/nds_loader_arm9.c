@@ -214,9 +214,8 @@ static bool dldiPatchLoader (data_t *binData, u32 binSize, bool clearBSS) {
 	return true;
 }*/
 
-ITCM_CODE static void SetSCFG(u8 scfgUnlock, u8 twlMode, u8 twlCLK, u8 twlVRAM) {
-	
-	if (twlMode > 0) {
+ITCM_CODE static void SetSCFG(tLauncherSettings launchData) {
+	/*if (launchData->twlMode > 0) {
 		*((vu32*)REG_MBK1)=0x8D898581;
 		*((vu32*)REG_MBK2)=0x8C888480;
 		*((vu32*)REG_MBK3)=0x9C989490;
@@ -225,7 +224,7 @@ ITCM_CODE static void SetSCFG(u8 scfgUnlock, u8 twlMode, u8 twlCLK, u8 twlVRAM) 
 		REG_MBK6=0x00000000;
 		REG_MBK7=0x07C03740;
 		REG_MBK8=0x07403700;
-	} else {
+	} else if ((launchData->twlMode == 0) && (launchData->twlRAM == 0)) {
 		// MBK settings for NTR mode games
 		*((vu32*)REG_MBK1)=0x8D898581;
 		*((vu32*)REG_MBK2)=0x91898581;
@@ -235,18 +234,47 @@ ITCM_CODE static void SetSCFG(u8 scfgUnlock, u8 twlMode, u8 twlCLK, u8 twlVRAM) 
 		REG_MBK6 = 0x00003000;
 		REG_MBK7 = 0x00003000;
 		REG_MBK8 = 0x00003000;
-	}
+	}*/
+
+	if (launchData.twlCLK == 0) { REG_SCFG_CLK = 0x80; } else { REG_SCFG_CLK = 0x87; };
 	
-	if (twlCLK == 0)REG_SCFG_CLK = 0x80;
-	if (twlMode > 0) {
-		REG_SCFG_EXT = 0x82073100;
+	if (launchData.twlMode > 0) {
+		REG_SCFG_EXT = 0x8307F100;
 		REG_SCFG_RST = 1;
 	} else {
-		REG_SCFG_EXT=0x83002000;
+		REG_SCFG_EXT = 0x8300E000;
 	}
-	if (twlVRAM == 0)REG_SCFG_EXT &= ~(1UL << 13);
-	if (scfgUnlock == 0x00)REG_SCFG_EXT &= ~(1UL << 31);
-	for (int i = 0; i < 10; i++) { while(REG_VCOUNT!=191);	while(REG_VCOUNT==191); }
+		
+	if (launchData.twlVRAM == 0)REG_SCFG_EXT &= ~(1UL << 13);
+	if (launchData.twlRAM == 0) {
+		REG_SCFG_EXT &= ~(1UL << 14);
+		REG_SCFG_EXT &= ~(1UL << 15);
+	}
+
+	if ((launchData.isTWLSRL > 0) && (launchData.twlRAM > 0) && (launchData.twlMode > 0)) {
+		*(vu32*)REG_MBK1 = *(u32*)0x02FFE180;
+		*(vu32*)REG_MBK2 = *(u32*)0x02FFE184;
+		*(vu32*)REG_MBK3 = *(u32*)0x02FFE188;
+		*(vu32*)REG_MBK4 = *(u32*)0x02FFE18C;
+		*(vu32*)REG_MBK5 = *(u32*)0x02FFE190;
+		REG_MBK6 = *(u32*)0x02FFE194;
+		REG_MBK7 = *(u32*)0x02FFE198;
+		REG_MBK8 = *(u32*)0x02FFE19C;
+		REG_MBK9 = *(u32*)0x02FFE1AC;
+		WRAM_CR  =  *(u8*)0x02FFE1AF;
+	} else {
+		*((vu32*)REG_MBK1)=0x8D898581;
+		*((vu32*)REG_MBK2)=0x91898581;
+		*((vu32*)REG_MBK3)=0x91999591;
+		*((vu32*)REG_MBK4)=0x91898581;
+		*((vu32*)REG_MBK5)=0x91999591;
+		REG_MBK6 = 0x00003000;
+		REG_MBK7 = 0x00003000;
+		REG_MBK8 = 0x00003000;
+		if (launchData.scfgUnlock == 0)REG_SCFG_EXT &= ~(1UL << 31);
+	}
+	
+	for (int i = 0; i < 10; i++) { while(REG_VCOUNT!=191); while(REG_VCOUNT==191); }
 }
 
 
@@ -256,28 +284,18 @@ eRunNdsRetCode runNds (const void* loader, u32 loaderSize, u32 cluster, bool ini
 	u16 argTempVal = 0;
 	int argSize;
 	const char* argChar;
-	
-	bool scfgUnlock = false;
-	bool twlMode = false;
-	bool twlCLK = false;
-	bool twlVRAM = false;
 		
-	if (launchdata.scfgUnlock > 0x00)scfgUnlock = true;
-	if (launchdata.twlMode > 0x00)twlMode = true;
-	if (launchdata.twlCLK > 0x00)twlCLK = true;
-	if (launchdata.twlVRAM > 0x00)twlVRAM = true;
-	
-	if (!twlMode) {
+	if (launchdata.twlMode == 0) {
 		fifoSendValue32(FIFO_USER_01, 1);
 		fifoWaitValue32(FIFO_USER_02);
 	}
 
 	irqDisable(IRQ_ALL);
 
-	SetSCFG(scfgUnlock, twlMode, twlCLK, twlVRAM);
+	SetSCFG(launchdata);
 
 	// Direct CPU access to VRAM bank C
-	VRAM_D_CR = VRAM_ENABLE | VRAM_D_LCD;
+	VRAM_D_CR = (VRAM_ENABLE | VRAM_D_LCD);
 	// Load the loader/patcher into the correct address
 	vramcpy (LCDC_BANK_D, loader, loaderSize);
 
@@ -332,9 +350,9 @@ eRunNdsRetCode runNds (const void* loader, u32 loaderSize, u32 cluster, bool ini
 	*(tLauncherSettings*)LAUNCH_DATA = launchdata;
 
 	// Give the VRAM to the ARM7
-	VRAM_D_CR = VRAM_ENABLE | VRAM_D_ARM7_0x06020000;	
+	VRAM_D_CR = (VRAM_ENABLE | VRAM_D_ARM7_0x06020000);
 	// Reset into a passme loop
-	REG_EXMEMCNT |= ARM7_OWNS_ROM | ARM7_OWNS_CARD;
+	REG_EXMEMCNT |= (ARM7_OWNS_ROM | ARM7_OWNS_CARD);
 	*((vu32*)0x02FFFFFC) = 0;
 	*((vu32*)0x02FFFE04) = (u32)0xE59FF018;
 	*((vu32*)0x02FFFE24) = (u32)0x02FFFE04;

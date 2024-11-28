@@ -14,8 +14,8 @@ endif
 #---------------------------------------------------------------------------------
 TARGET		:=	load
 BUILD		:=	build
-SOURCES		:=	source source/patches 
-INCLUDES	:=	build ../include
+SOURCES		:=	source source/patches source/modcrypt
+INCLUDES	:=	build ../include source/modcrypt
 DATA		:=	../data
 SPECS		:=  specs
  
@@ -24,10 +24,9 @@ SPECS		:=  specs
 #---------------------------------------------------------------------------------
 ARCH	:=	-mthumb-interwork -march=armv4t -mtune=arm7tdmi
 
-CFLAGS	:=	-g -Wall -O2 \
+CFLAGS	:=	-g -Wall -Wextra -Werror -O2 \
 			-fomit-frame-pointer \
 			-ffast-math \
-			-Wall -Wextra -Werror \
 			$(ARCH)
 
 CFLAGS	+=	$(INCLUDE) -DARM7

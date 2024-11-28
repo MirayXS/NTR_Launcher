@@ -39,23 +39,34 @@ extern void InitConsole();
 extern bool ConsoleInit;
 
 
-ITCM_CODE static void SETSCFG() {
-	REG_SCFG_EXT=0x83002000;
+ITCM_CODE static void SETSCFG(u8 twlMode, u8 twlVRAM, u8 twlRAM) {
+	if (twlMode > 0) {
+		// if (twlRAM > 0) { REG_SCFG_EXT = 0x82076100; } else { REG_SCFG_EXT = 0x82073100; }
+		// if (twlRAM > 0) { REG_SCFG_EXT = 0x8207611F; } else { REG_SCFG_EXT = 0x8207311F; }
+		// if (twlRAM > 0) { REG_SCFG_EXT = 0x8207711F; } else { REG_SCFG_EXT = 0x8207311F; }
+		// REG_SCFG_EXT = 0x8207711F;
+		REG_SCFG_EXT = 0x8307F100;
+		REG_SCFG_RST = 1;
+	} else {
+		// if (twlRAM == 0) { REG_SCFG_EXT = 0x83002000; } else { REG_SCFG_EXT = 0x83006000; }
+		// REG_SCFG_EXT = 0x83006000;
+		REG_SCFG_EXT = 0x8300E000;
+	}
+	if (twlVRAM == 0)REG_SCFG_EXT &= ~(1UL << 13);
+	if (twlRAM == 0)REG_SCFG_EXT &= ~(1UL << 14);
+	if (twlRAM == 0)REG_SCFG_EXT &= ~(1UL << 15);
 	for(int i = 0; i < 8; i++) { while(REG_VCOUNT!=191); while(REG_VCOUNT==191); }
 }
 
 
 void runLaunchEngine (tLauncherSettings launchdata) {
 	// Always init console so bootloader's new console can display error codes if needed.
-	if (!launchdata.debugMode || !ConsoleInit) {  InitConsole();  } else { consoleClear(); }
-		
+	if (!launchdata.debugMode || !ConsoleInit) { InitConsole(); } else { consoleClear(); }
+	
 	irqDisable(IRQ_ALL);
 	// Direct CPU access to VRAM bank D
-	VRAM_D_CR = VRAM_ENABLE | VRAM_D_LCD;
-	
-	// Clear VRAM
-	// memset (LCDC_BANK_D, 0x00, 128 * 1024);
-	
+	VRAM_D_CR = (VRAM_ENABLE | VRAM_D_LCD);
+		
 	// Load the loader/patcher into the correct address
 	vramcpy (LCDC_BANK_D, load_bin, load_bin_size);
 
@@ -64,17 +75,17 @@ void runLaunchEngine (tLauncherSettings launchdata) {
 	VRAM_D_CR = VRAM_ENABLE | VRAM_D_ARM7_0x06020000;
 	
 	// Reset into a passme loop
-	nocashMessage("Reset into a passme loop");
+	// nocashMessage("Reset into a passme loop");
 	REG_EXMEMCNT |= ARM7_OWNS_ROM | ARM7_OWNS_CARD;
 	
 	*(tLauncherSettings*)LAUNCH_DATA = launchdata;
 	
-	SETSCFG();
+	SETSCFG(launchdata.twlMode, launchdata.twlVRAM, launchdata.twlRAM);
 	
 	// Return to passme loop
-	*(vu32*)0x027FFFFC = 0;
-	*(vu32*)0x027FFE04 = (u32)0xE59FF018; // ldr pc, 0x02FFFE24
-	*(vu32*)0x027FFE24 = (u32)0x02FFFE04;  // Set ARM9 Loop address --> resetARM9(0x027FFE04);	
+	*(vu32*)0x02FFFFFC = 0;
+	*(vu32*)0x02FFFE04 = (u32)0xE59FF018; // ldr pc, 0x02FFFE24
+	*(vu32*)0x02FFFE24 = (u32)0x02FFFE04;  // Set ARM9 Loop address --> resetARM9(0x02FFFE04);	
 	// Reset ARM7
 	// nocashMessage("resetARM7");
 	resetARM7(0x06020000);

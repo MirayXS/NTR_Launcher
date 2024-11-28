@@ -25,12 +25,13 @@
 #include <string>
 #include <vector>
 #include "read_card.h"
+#include "launcherData.h"
 
 
 extern bool cartInsertedOnBoot;
 extern sNDSHeaderExt ntrHeader;
 
-std::string browseForFile (const std::vector<std::string>& extensionList);
+std::string browseForFile (const std::vector<std::string>& extensionList, tLauncherSettings launchdata);
 
 
 #endif //FILE_BROWSE_H

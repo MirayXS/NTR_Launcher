@@ -42,53 +42,61 @@
 
 using namespace std;
 
-// ALIGN(4) sNDSHeaderExt NTRHeader;
-
 static char gameTitle[13] = {0};
-// static char gameCode[5] = {0};
 
-static u8* fileBuffer;
+static ALIGN(4) u8* fileBuffer;
 
+static const int FileListSize = 13;
+static const u32 FileMaxSize = 0x500000;
 
-static const char* NitroSourceFileList[9] = {
-	"nitro:/NTR_Launcher/Acekard2i.nds",
-	"nitro:/NTR_Launcher/ActionReplayDS.nds",
-	"nitro:/NTR_Launcher/DSTwo.nds",
-	"nitro:/NTR_Launcher/EZFlashV.nds",
-	"nitro:/NTR_Launcher/R4DS_Ultra.nds",
-	"nitro:/NTR_Launcher/R4i_SDHC_AVRJ.nds",
-	"nitro:/NTR_Launcher/R4iGold_Launcher.nds",
-	"nitro:/NTR_Launcher/R4iSDHC_Demon.nds",
-	"nitro:/NTR_Launcher/TTDS.nds"
+static const char* NitroSourceFileList[FileListSize] = {
+	"nitro:/NTR_Launcher/Acekard2i.nds",		// 0
+	"nitro:/NTR_Launcher/ActionReplayDS.nds",	// 1
+	"nitro:/NTR_Launcher/CycloDS.nds",			// 2
+	"nitro:/NTR_Launcher/DSONEi.nds",			// 3
+	"nitro:/NTR_Launcher/DSTwo.nds",			// 4
+	"nitro:/NTR_Launcher/EZFlashV.nds",			// 5
+	"nitro:/NTR_Launcher/NCARD.nds",			// 6
+	"nitro:/NTR_Launcher/R4DS.nds",				// 7
+	"nitro:/NTR_Launcher/R4DS_Ultra.nds",		// 8
+	"nitro:/NTR_Launcher/R4i_SDHC_AVRJ.nds",	// 9
+	"nitro:/NTR_Launcher/R4iGold_Launcher.nds",	// 10
+	"nitro:/NTR_Launcher/R4iSDHC_Demon.nds",	// 11
+	"nitro:/NTR_Launcher/TTDS.nds"				// 12
 };
 
-static const char* NitroDestFileList[9] = {
-	"sd:/NTR_Launcher/Acekard2i.nds",
-	"sd:/NTR_Launcher/ActionReplayDS.nds",
-	"sd:/NTR_Launcher/DSTwo.nds",
-	"sd:/NTR_Launcher/EZFlashV.nds",
-	"sd:/NTR_Launcher/R4DS_Ultra.nds",
-	"sd:/NTR_Launcher/R4i_SDHC_AVRJ.nds",
-	"sd:/NTR_Launcher/R4iGold_Launcher.nds",
-	"sd:/NTR_Launcher/R4iSDHC_Demon.nds",
-	"sd:/NTR_Launcher/TTDS.nds"
+static const char* NitroDestFileList[FileListSize] = {
+	"sd:/NTR_Launcher/Acekard2i.nds",			// 0
+	"sd:/NTR_Launcher/ActionReplayDS.nds",		// 1
+	"sd:/NTR_Launcher/CycloDS.nds",				// 2
+	"sd:/NTR_Launcher/DSONEi.nds",				// 3
+	"sd:/NTR_Launcher/DSTwo.nds",				// 4
+	"sd:/NTR_Launcher/EZFlashV.nds",			// 5
+	"sd:/NTR_Launcher/NCARD.nds",				// 6
+	"sd:/NTR_Launcher/R4DS.nds",				// 7
+	"sd:/NTR_Launcher/R4DS_Ultra.nds",			// 8
+	"sd:/NTR_Launcher/R4i_SDHC_AVRJ.nds",		// 9
+	"sd:/NTR_Launcher/R4iGold_Launcher.nds",	// 10
+	"sd:/NTR_Launcher/R4iSDHC_Demon.nds",		// 11
+	"sd:/NTR_Launcher/TTDS.nds"					// 12
 };
 
 static void DoWait(int waitTime = 30) { for (int i = 0; i < waitTime; i++)swiWaitForVBlank(); };
 
 static void DoCardInit() {
+	sysSetCardOwner(BUS_OWNER_ARM9);
 	switch (REG_SCFG_MC) {
 		case 0x10: { enableSlot1(); DoWait(15);	}break;
 		case 0x11: { enableSlot1();	DoWait(15);	}break;
 	}
 	// Do cart init stuff to wake cart up. DLDI init may fail otherwise!
-	CardReset(true);
-	cardReadHeader((u8*)&ntrHeader);
+	cardInit(&ntrHeader);
+	while(REG_ROMCTRL & CARD_BUSY)swiWaitForVBlank();
+	// CardReset(true);
+	// cardReadHeader((u8*)&ntrHeader);
 	CardReset(false);
-	// cardInit(&ntrHeader);
 	tonccpy(gameTitle, ntrHeader.gameTitle, 12);
-	// tonccpy(gameCode, ntrHeader.gameCode, 4);
-	// DoWait(25);
+	while(REG_ROMCTRL & CARD_BUSY)swiWaitForVBlank();
 }
 
 
@@ -121,30 +129,28 @@ static int stop(void) {
 }
 
 static void CheckFolder() {
-	// if (sizeof(NitroSourceFileList) != sizeof(NitroDestFileList))return;
 	bool copyNeeded = false;
-	int listSize = 8;
-	for (int i = 0; i < listSize; i++) {
+	int i = 0;
+	for (i = 0; i < FileListSize; i++) {
 		if (access(NitroDestFileList[i], F_OK) != 0) {
 			copyNeeded = true;
 			break;
 		}
 	}
 	if (!copyNeeded)return;
+	
 	printf("\n\n\n\n\n\n\n\n\n   Setting up Stage2 folder");
 	printf("\n\n        Please Wait...\n");
 	
-	u32 BufferSize = 0x40000;
-	fileBuffer = (u8*)malloc(BufferSize);
-	for (int i = 0; i < listSize; i++) {
+	fileBuffer = (u8*)malloc(FileMaxSize);
+	for (i = 0; i < FileListSize; i++) {
 		if (access(NitroDestFileList[i], F_OK) != 0) {
 			FILE *src = fopen(NitroSourceFileList[i], "rb");
 			if (src) {
 				fseek(src, 0, SEEK_END);
 				u32 fSize = ftell(src);
-				// toncset((u8*)fileBuffer, 0xFF, fSize);
 				fseek(src, 0, SEEK_SET);
-				if (fSize <= BufferSize) {
+				if (fSize <= FileMaxSize) {
 					FILE *dest = fopen(NitroDestFileList[i], "wb");
 					if (dest) {
 						fread((u8*)fileBuffer, 1, fSize, src);
@@ -164,7 +170,7 @@ static int BrowserUI(tLauncherSettings launchdata) {
 	vector<string> extensionList = argsGetExtensionList();
 	chdir("sd:/NTR_Launcher");
 	while(1) {
-		string filename = browseForFile(extensionList);
+		string filename = browseForFile(extensionList, launchdata);
 		if (cartSelected)break;
 		// Construct a command line
 		vector<string> argarray;
@@ -176,6 +182,16 @@ static int BrowserUI(tLauncherSettings launchdata) {
 			vector<const char*> c_args;
 			for (const auto& arg: argarray) { c_args.push_back(arg.c_str()); }
 			// Try to run the NDS file with the given arguments
+			if (access(c_args[0], F_OK) == 0) {
+				FILE *src = fopen(c_args[0], "rb");
+				if (src) {
+					fread((u8*)0x02FFE000, 1, 0x200, src);
+					if (((tNDSHeader*)0x02FFE000)->unitCode & BIT(1))launchdata.isTWLSRL = 0xFF;
+					fclose(src);
+				}
+			}
+			// tonccpy((void*)0x02FFDFF0, (void*)LAUNCH_DATA, 0x10);
+			launchdata.cachedChipID = *(u32*)InitialCartChipID;
 			int err = runNdsFile(c_args[0], c_args.size(), &c_args[0], launchdata);
 			iprintf("Start failed. Error %i\n", err);
 			break;
@@ -185,17 +201,22 @@ static int BrowserUI(tLauncherSettings launchdata) {
 	if (cartSelected) {
 		// DS-Xtreme does not like running in TWL clock speeds.
 		// (write function likely goes too fast and semi-bricks hidden sector region randomly when using official launcher)
-		if (!memcmp(gameTitle, "D!S!XTREME", 9)) {
+		if (!memcmp(gameTitle, "D!S!XTREME", 10)) {
 			launchdata.scfgUnlock = 0x00;
 			launchdata.twlMode = 0x00;
 			launchdata.twlCLK = 0x00;
 			launchdata.twlVRAM = 0x00;
-			cardInit(&ntrHeader);
-		} else {
-			if (cartInsertedOnBoot)DoCardInit(); // Currently required for bootlaoder to succeed with card init.
-			// Give launch soundfx time to finish if card Init already occured.
-			if (!cartInsertedOnBoot)DoWait(29);
+			launchdata.twlRAM = 0x00;
+			launchdata.isTWLSRL = 0x00;
+			// cardInit(&ntrHeader);
 		}
+		if (cartInsertedOnBoot) {
+			DoCardInit(); // Currently required for bootlaoder to succeed with card init.
+		} else {
+			DoWait(29);	// Give launch soundfx time to finish if card Init already occured.
+		}
+		if (ntrHeader.unitCode & BIT(1))launchdata.isTWLSRL = 0x01;
+		launchdata.cachedChipID = *(u32*)InitialCartChipID;
 		runLaunchEngine(launchdata);
 	}
 	return stop();
