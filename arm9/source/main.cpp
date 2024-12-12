@@ -253,6 +253,7 @@ int main() {
 	scanKeys();
 	swiWaitForVBlank();
 	
+	// Enable for testing in No$GBA
 	/*scfgunlock = true;
 	twlmode = true;
 	twlclk = true;
@@ -349,7 +350,7 @@ int main() {
 				}
 				break;
 			} else {
-				LaunchData.cachedChipID = *(u32*)InitialCartChipID;
+				LaunchData.cachedChipID = *(vu32*)InitialCartChipID;
 				runLaunchEngine(LaunchData);
 				break;
 			}

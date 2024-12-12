@@ -498,88 +498,88 @@ static void setMemoryAddress(const tNDSHeader* ndsHeader, u32 ChipID) {
 	if (ndsHeader->unitCode & BIT(1)) {
 		copyLoop((u32*)0x02FFFA80, (u32*)ndsHeader, 0x160);	// Make a duplicate of DS header
 
-		*(u32*)(0x02FFA680) = 0x02FD4D80;
-		*(u32*)(0x02FFA684) = 0x00000000;
-		*(u32*)(0x02FFA688) = 0x00001980;
+		*(vu32*)(0x02FFA680) = 0x02FD4D80;
+		*(vu32*)(0x02FFA684) = 0x00000000;
+		*(vu32*)(0x02FFA688) = 0x00001980;
 
-		*(u32*)(0x02FFF00C) = 0x0000007F;
-		*(u32*)(0x02FFF010) = 0x550E25B8;
-		*(u32*)(0x02FFF014) = 0x02FF4000;
+		*(vu32*)(0x02FFF00C) = 0x0000007F;
+		*(vu32*)(0x02FFF010) = 0x550E25B8;
+		*(vu32*)(0x02FFF014) = 0x02FF4000;
 
 		// Set region flag
 		if (strncmp(getRomTid(ndsHeader)+3, "J", 1) == 0) {
-			*(u8*)(0x02FFFD70) = 0;
+			*(vu8*)(0x02FFFD70) = 0;
 		} else if (strncmp(getRomTid(ndsHeader)+3, "E", 1) == 0) {
-			*(u8*)(0x02FFFD70) = 1;
+			*(vu8*)(0x02FFFD70) = 1;
 		} else if (strncmp(getRomTid(ndsHeader)+3, "P", 1) == 0) {
-			*(u8*)(0x02FFFD70) = 2;
+			*(vu8*)(0x02FFFD70) = 2;
 		} else if (strncmp(getRomTid(ndsHeader)+3, "U", 1) == 0) {
-			*(u8*)(0x02FFFD70) = 3;
+			*(vu8*)(0x02FFFD70) = 3;
 		} else if (strncmp(getRomTid(ndsHeader)+3, "C", 1) == 0) {
-			*(u8*)(0x02FFFD70) = 4;
+			*(vu8*)(0x02FFFD70) = 4;
 		} else if (strncmp(getRomTid(ndsHeader)+3, "K", 1) == 0) {
-			*(u8*)(0x02FFFD70) = 5;
+			*(vu8*)(0x02FFFD70) = 5;
 		}
 	}
 	
     // Set memory values expected by loaded NDS
     // from NitroHax, thanks to Chism
-	*((u32*)0x02FFF800) = ChipID;					// CurrentCardID
+	*((vu32*)0x02FFF800) = ChipID;					// CurrentCardID
 	// *((u32*)0x02FFF804) = ChipID;					// Command10CardID // This does not result in correct v
-	*((u16*)0x02FFF808) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
-	*((u16*)0x02FFF80A) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
-	*((u16*)0x02FFF850) = 0x5835;
+	*((vu16*)0x02FFF808) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
+	*((vu16*)0x02FFF80A) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
+	*((vu16*)0x02FFF850) = 0x5835;
 	// Copies of above
-	*((u32*)0x02FFFC00) = ChipID;					// CurrentCardID
+	*((vu32*)0x02FFFC00) = ChipID;					// CurrentCardID
 	// *((u32*)0x02FFFC04) = ChipID;					// Command10CardID
-	*((u16*)0x02FFFC08) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
-	*((u16*)0x02FFFC0A) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
-	*((u16*)0x02FFFC10) = 0x5835;
-	*((u16*)0x02FFFC40) = 0x01;						// Boot Indicator -- EXTREMELY IMPORTANT!!! Thanks to cReDiAr
+	*((vu16*)0x02FFFC08) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
+	*((vu16*)0x02FFFC0A) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
+	*((vu16*)0x02FFFC10) = 0x5835;
+	*((vu16*)0x02FFFC40) = 0x01;						// Boot Indicator -- EXTREMELY IMPORTANT!!! Thanks to cReDiAr
 }
 
 static void setMemoryAddressTWL(const tNDSHeader* ndsHeader, u32 ChipID) {
 	if (ndsHeader->unitCode & BIT(1)) {
 		copyLoop((u32*)0x027FFA80, (u32*)ndsHeader, 0x160);	// Make a duplicate of DS header
 
-		*(u32*)(0x027FA680) = 0x02FD4D80;
-		*(u32*)(0x027FA684) = 0x00000000;
-		*(u32*)(0x027FA688) = 0x00001980;
+		*(vu32*)(0x027FA680) = 0x02FD4D80;
+		*(vu32*)(0x027FA684) = 0x00000000;
+		*(vu32*)(0x027FA688) = 0x00001980;
 
-		*(u32*)(0x027FF00C) = 0x0000007F;
-		*(u32*)(0x027FF010) = 0x550E25B8;
-		*(u32*)(0x027FF014) = 0x02FF4000;
+		*(vu32*)(0x027FF00C) = 0x0000007F;
+		*(vu32*)(0x027FF010) = 0x550E25B8;
+		*(vu32*)(0x027FF014) = 0x02FF4000;
 
 		// Set region flag
 		if (strncmp(getRomTid(ndsHeader)+3, "J", 1) == 0) {
-			*(u8*)(0x027FFD70) = 0;
+			*(vu8*)(0x027FFD70) = 0;
 		} else if (strncmp(getRomTid(ndsHeader)+3, "E", 1) == 0) {
-			*(u8*)(0x027FFD70) = 1;
+			*(vu8*)(0x027FFD70) = 1;
 		} else if (strncmp(getRomTid(ndsHeader)+3, "P", 1) == 0) {
-			*(u8*)(0x027FFD70) = 2;
+			*(vu8*)(0x027FFD70) = 2;
 		} else if (strncmp(getRomTid(ndsHeader)+3, "U", 1) == 0) {
-			*(u8*)(0x027FFD70) = 3;
+			*(vu8*)(0x027FFD70) = 3;
 		} else if (strncmp(getRomTid(ndsHeader)+3, "C", 1) == 0) {
-			*(u8*)(0x027FFD70) = 4;
+			*(vu8*)(0x027FFD70) = 4;
 		} else if (strncmp(getRomTid(ndsHeader)+3, "K", 1) == 0) {
-			*(u8*)(0x027FFD70) = 5;
+			*(vu8*)(0x027FFD70) = 5;
 		}
 	}
 	
     // Set memory values expected by loaded NDS
     // from NitroHax, thanks to Chism
-	*((u32*)0x027FF800) = ChipID;					// CurrentCardID
+	*((vu32*)0x027FF800) = ChipID;					// CurrentCardID
 	// *((u32*)0x027FF804) = ChipID;					// Command10CardID
-	*((u16*)0x027FF808) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
-	*((u16*)0x027FF80A) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
-	*((u16*)0x027FF850) = 0x5835;
+	*((vu16*)0x027FF808) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
+	*((vu16*)0x027FF80A) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
+	*((vu16*)0x027FF850) = 0x5835;
 	// Copies of above
-	*((u32*)0x027FFC00) = ChipID;					// CurrentCardID
+	*((vu32*)0x027FFC00) = ChipID;					// CurrentCardID
 	// *((u32*)0x027FFC04) = ChipID;					// Command10CardID
-	*((u16*)0x027FFC08) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
-	*((u16*)0x027FFC0A) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
-	*((u16*)0x027FFC10) = 0x5835;
-	*((u16*)0x027FFC40) = 0x01;						// Boot Indicator -- EXTREMELY IMPORTANT!!! Thanks to cReDiAr
+	*((vu16*)0x027FFC08) = ndsHeader->headerCRC16;	// Header Checksum, CRC-16 of [000h-15Dh]
+	*((vu16*)0x027FFC0A) = ndsHeader->secureCRC16;	// Secure Area Checksum, CRC-16 of [ [20h]..7FFFh]
+	*((vu16*)0x027FFC10) = 0x5835;
+	*((vu16*)0x027FFC40) = 0x01;						// Boot Indicator -- EXTREMELY IMPORTANT!!! Thanks to cReDiAr
 	
 	tonccpy((u32*)0x027FC000, (u32*)TMP_HEADER, 0x1000);
 	tonccpy((u32*)0x027FF000, (u32*)NDS_HEADER_POKEMON, 0x170);
@@ -662,7 +662,7 @@ static u16 arm7_loadBinary (void) {
 		errorCode = cardInit((sNDSHeaderExt*)twlHeaderTemp, &chipID);
 	}*/
 	
-	errorCode = cardInit((sNDSHeaderExt*)twlHeaderTemp, (u32*)InitialCartChipID);
+	errorCode = cardInit((sNDSHeaderExt*)twlHeaderTemp, (vu32*)InitialCartChipID);
 	
 	if (errorCode)return errorCode;
 
@@ -755,9 +755,9 @@ void arm7_main (void) {
 	// if (twlCLK > 0) { REG_SCFG_CLK = 0x187; } else { REG_SCFG_CLK = 0x107; }
 	if (scfgUnlock == 0)REG_SCFG_EXT &= ~(1UL << 31); /// REG_SCFG_EXT |= BIT(18);
 	
-	setMemoryAddress(ndsHeader, *(u32*)InitialCartChipID);
+	setMemoryAddress(ndsHeader, *(vu32*)InitialCartChipID);
 	
-	if ((twlRAM > 0) && ((twlMode == 0) || (isTWLSRL == 0)))setMemoryAddressTWL(ndsHeader, *(u32*)InitialCartChipID);
+	if ((twlRAM > 0) && ((twlMode == 0) || (isTWLSRL == 0) || ((isTWLSRL == 0) && (twlMode > 0))))setMemoryAddressTWL(ndsHeader, *(vu32*)InitialCartChipID);
 
 	ipcSendState(ARM7_BOOTBIN);
 		

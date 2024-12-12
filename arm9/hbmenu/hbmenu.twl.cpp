@@ -191,7 +191,7 @@ static int BrowserUI(tLauncherSettings launchdata) {
 				}
 			}
 			// tonccpy((void*)0x02FFDFF0, (void*)LAUNCH_DATA, 0x10);
-			launchdata.cachedChipID = *(u32*)InitialCartChipID;
+			launchdata.cachedChipID = *(vu32*)InitialCartChipID;
 			int err = runNdsFile(c_args[0], c_args.size(), &c_args[0], launchdata);
 			iprintf("Start failed. Error %i\n", err);
 			break;
@@ -216,7 +216,7 @@ static int BrowserUI(tLauncherSettings launchdata) {
 			DoWait(29);	// Give launch soundfx time to finish if card Init already occured.
 		}
 		if (ntrHeader.unitCode & BIT(1))launchdata.isTWLSRL = 0x01;
-		launchdata.cachedChipID = *(u32*)InitialCartChipID;
+		launchdata.cachedChipID = *(vu32*)InitialCartChipID;
 		runLaunchEngine(launchdata);
 	}
 	return stop();

@@ -279,7 +279,7 @@ static void switchToTwlBlowfish(sNDSHeaderExt* ndsHeader) {
 }
 
 
-u16 cardInit (sNDSHeaderExt* ndsHeader, u32 *chipID) {
+u16 cardInit (sNDSHeaderExt* ndsHeader, vu32* chipID) {
 	u32 portFlagsKey1, portFlagsSecRead;
 	normalChip = 0;	// As defined by GBAtek, normal chip secure area is accessed in blocks of 0x200, other chip in blocks of 0x1000
 	u32* secureArea;
@@ -306,10 +306,10 @@ u16 cardInit (sNDSHeaderExt* ndsHeader, u32 *chipID) {
 	if (ndsHeader->headerCRC16 != swiCRC16(0xFFFF, (void*)ndsHeader, 0x15E))return ERR_HEAD_CRC;
 	
 	// 1st Get ROM Chip ID
-	cardParamCommand (CARD_CMD_HEADER_CHIPID, 0, (ndsHeader->cardControl13 & (CARD_WR|CARD_nRESET|CARD_CLK_SLOW)) | CARD_ACTIVATE | CARD_BLK_SIZE(7), chipID, sizeof(u32));
+	cardParamCommand (CARD_CMD_HEADER_CHIPID, 0, (ndsHeader->cardControl13 & (CARD_WR|CARD_nRESET|CARD_CLK_SLOW)) | CARD_ACTIVATE | CARD_BLK_SIZE(7), (u32*)chipID, sizeof(u32));
 	// iCardId = cardReadID((ndsHeader->cardControl13 & (CARD_WR|CARD_nRESET|CARD_CLK_SLOW)) | CARD_ACTIVATE | CARD_BLK_SIZE(7));
 	// iCardId = cardReadID(CARD_CLK_SLOW);
-	// chipID = cardReadID(CARD_CLK_SLOW);
+	// *chipID = cardReadID(CARD_CLK_SLOW);
 	while (REG_ROMCTRL & CARD_BUSY);
 		
 	// *chipID = iCardId;

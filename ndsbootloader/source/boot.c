@@ -239,14 +239,13 @@ void resetMemory_ARM7(void) {
 	REG_POWERCNT = 1;  //turn off power to stuffs
 }
 
-static void XMenuFix() {
+static void XMenuFix(const tNDSHeader* ndsHeader) {
 	*((vu8*)0x02FFFF70) = 0x91;
-	if (twlmode > 0)*((vu8*)0x027FFF70) = 0x91;
-	
+	if ((twlram > 0) && !(ndsHeader->unitCode & BIT(1)))*((vu8*)0x027FFF70) = 0x91;
 }
 
 static void setMemoryAddressTWL(const tNDSHeader* ndsHeader) {
-	if (ndsHeader->unitCode > 0) {
+	if (ndsHeader->unitCode & BIT(1)) {
 		// copyLoop((u32*)0x027FFA80, (u32*)ndsHeader, 0x160);	// Make a duplicate of DS header
 		tonccpy((u32*)0x027FFA80, (u32*)ndsHeader, 0x160);	// Make a duplicate of DS header
 
@@ -300,7 +299,7 @@ static void setMemoryAddressTWL(const tNDSHeader* ndsHeader) {
 }
 
 static void setMemoryAddress(const tNDSHeader* ndsHeader) {
-	if (ndsHeader->unitCode > 0) {
+	if (ndsHeader->unitCode & BIT(1)) {
 		// copyLoop((u32*)0x02FFFA80, (u32*)ndsHeader, 0x160);	// Make a duplicate of DS header
 		tonccpy((u32*)0x02FFFA80, (u32*)ndsHeader, 0x160);	// Make a duplicate of DS header
 
@@ -347,14 +346,14 @@ static void setMemoryAddress(const tNDSHeader* ndsHeader) {
 	*((u16*)0x02FFFC10) = 0x5835;
 	*((u16*)0x02FFFC40) = 0x01;						// Boot Indicator -- EXTREMELY IMPORTANT!!! Thanks to cReDiAr
 	
-	if ((twlram > 0) && (ndsHeader->unitCode == 0))setMemoryAddressTWL(ndsHeader);
-	
 	switch (*((vu16*)0x02FFFF5E)) {
-		case 0xF63D: XMenuFix(); break;
-		case 0x0695: XMenuFix(); break;
-		case 0xE4C4: XMenuFix(); break;
-		case 0x918C: XMenuFix(); break;
+		case 0xF63D: XMenuFix(ndsHeader); break;
+		case 0x0695: XMenuFix(ndsHeader); break;
+		case 0xE4C4: XMenuFix(ndsHeader); break;
+		case 0x918C: XMenuFix(ndsHeader); break;
 	}
+	
+	if ((twlram > 0) && !(ndsHeader->unitCode & BIT(1)))setMemoryAddressTWL(ndsHeader);
 }
 
 static u8 readwriteSPI(u8 data) {

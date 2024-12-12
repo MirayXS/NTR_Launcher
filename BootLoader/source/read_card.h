@@ -121,7 +121,7 @@ typedef struct {
 } sNDSHeaderExt;
 
 // u32 cardGetId();
-u16 cardInit (sNDSHeaderExt* ndsHeader, u32 *chipID);
+u16 cardInit (sNDSHeaderExt* ndsHeader, vu32* chipID);
 void cardRead (sNDSHeaderExt* ndsHeader, u32 src, u32* dest, size_t size);
 // u32 cardInitShort (sNDSHeaderExt* ndsHeader, u32* chipID);
 

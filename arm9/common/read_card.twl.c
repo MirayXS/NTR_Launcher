@@ -355,7 +355,7 @@ u32 cardInit (sNDSHeaderExt* ndsHeader) {
 
 	iCardId = cardReadID(CARD_CLK_SLOW);
 	while(REG_ROMCTRL & CARD_BUSY)swiWaitForVBlank();
-	*(u32*)InitialCartChipID = iCardId;
+	*(vu32*)InitialCartChipID = iCardId;
 	
 	normalChip = (iCardId & BIT(31)) != 0; // ROM chip ID MSB
 	nandChip = (iCardId & BIT(27)) != 0; // Card has a NAND chip
